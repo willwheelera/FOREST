@@ -45,31 +45,27 @@ def clean_data(df):
         df.loc[select, "Measure"] = v
 
 
-def add_device_data(df, meterdf, keys): # full dataset
+def add_device_year_data(df, meterdf, keys): # full dataset
     df = df[[type(x) == int for x in df["Account"]]].copy()
     df["Service Number"] = df["Account"].values // 100
+
+    meterdf.set_index("Service Number", inplace=True)
     measures = df[["Service Number", "Measure"]]
     # clean separately??
     #isdigit = meterdf["Service Number"].str.isdigit().fillna(False)
     #meterdf.drop(index=np.where(~isdigit)[0], inplace=True)
     for k in keys:
-        tmp = measures[measures["Measure"] == k]["Service Number"].values
-        meterdf[k] = [int(x) in tmp for x in meterdf["Service Number"].values]
-
-
-def heat_pump_data(df, meterdf, Substation=28):
-    df = df[[type(x) == int for x in df["Account"]]]
-    df["Service Number"] = df["Account"] // 100
-    feeder = dict(Substation=Substation)
-    for k, v in feeder.items():
-        select = df[k] == v
-        df = df[select]
-
-    measures = df["Measure"]
-    cchp = measures[measures.str.upper() == "CCHP"]
-    meterdf["CCHP"] = [x in cchp["Service Number"] for x in meterdf["Service Number"]]
-    print(meterdf)
+        meterdf[k] = 10000 # year infinity, later than any install
+    for i, row in df.iterrows():
+        k = row["Measure"]
+        sn = row["Service Number"]
+        meterdf.loc[sn, k] = row["Year"]
+        #tmp = df[df["Measure"] == k]
+        #tmp = measures[measures["Measure"] == k]["Service Number"].values
+        #meterdf[k] = [int(x) in tmp for x in meterdf["Service Number"].values]
+    meterdf.reset_index(inplace=True)
     
+
 def select_data(df, **kwargs):
     df = df[[type(x) == int for x in df["Account"]]]
     df["Service Number"] = df["Account"] // 100
