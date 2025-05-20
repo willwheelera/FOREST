@@ -22,7 +22,7 @@ def run():
 
     #data = data / np.abs(np.amax(data, axis=-1, keepdims=True))
     #data = data / np.abs(np.std(data, axis=-1, keepdims=True))
-    plot_max(data)
+    plot_mean(data)
 
 def plot_max(v):
     # divide by mean - if the load curves scale, this helps compare
@@ -39,23 +39,27 @@ def plot_max(v):
     
 
 def plot_mean(v):
+    mean = v.sum(axis=0) / 1000 # total over year in MWh
     n = len(mean)
-    mean = v.mean(axis=0) # avg over year
-    hist, bins = np.histogram(mean, bins=n//10, density=True)
+    hist, bins = np.histogram(mean, bins=n//5)
+    hist = hist / n # fraction of the total
     ch = np.cumsum(hist)
-    plt.plot(bins[:-1], ch * np.diff(bins))
+    plt.plot(bins[:-1], ch )
 
     print("len mean", n)
     m = np.sort(mean)
-    smoothm = smooth(m, 5)
+    smoothm = smooth(m, 3)
     plt.plot(m, np.linspace(0, 1, n))
     plt.plot(smoothm, np.linspace(0, 1, n))
 
     plt.figure()
-    plt.plot(bins[:-1], smooth(hist))
+    x = (bins[1:] + bins[:-1])/2
+    plt.bar(x, hist)
+    plt.plot(x, smooth(hist))
     plt.title("distribution across meters")
-    plt.xlabel("mean load over 2024")
-    #plt.savefig("mean_distribution.pdf", bbox_inches="tight")
+    plt.xlabel("total load over 2024")
+    plt.ylabel("fraction of meters")
+    plt.savefig("total_distribution.pdf", bbox_inches="tight")
     plt.show()
 
 def smooth(x, n=3):
