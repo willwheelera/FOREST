@@ -3,10 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+TOWNS = ["ALBURGH", "SOUTH HERO", "GLOVER"]
+
 def run():
     fname = 'data/PP12 Jan2025.xlsx'
     df = pd.read_excel(fname)
     df = clean_pv_data(df)
+    print_total_nums(df)
 
 # Clean up PV spreadsheet
 def clean_pv_data(df):
@@ -17,8 +20,6 @@ def clean_pv_data(df):
         select = df["City/Town"] == k
         df.loc[select, "City/Town"] = v
 
-    towns = ["ALBURGH", "SOUTH HERO", "GLOVER"]
-    df = df[df["City/Town"].isin(towns)]
     return df
 
 def add_pending(df):
@@ -32,14 +33,21 @@ def print_total_nums(df):
     metername = "data/VEC_meter_number_data.parquet"
     meterdf = pd.read_parquet(metername)
 
+    print("All Substations         ", (df["Status"]!= "Cancelled").sum(), end=" / ")
+    print(len(meterdf))
     for sub, name in zip([28, 29, 43], ["ALBURGH", "SOUTH HERO", "GLOVER"]):
         tmp = df[df["City/Town"]==name]
         print("Substation", sub, f"{name:<10}", (tmp["Status"]!= "Cancelled").sum(), end=" / ")
-    print((meterdf["Substation"]==str(sub)).sum())
+        print((meterdf["Substation"]==str(sub)).sum())
 
 def plot(df):
+    df = df[df["City/Town"].isin(TOWNS)]
     df = df[~df["In-Service Date"].isna()]
     df = df.sort_values(by="In-Service Date")
 
     sns.kdeplot(data=df, hue="City/Town", x="In-Service Date", bw_adjust=0.1)
     plt.show()
+
+
+if __name__ == "__main__":
+    run()
