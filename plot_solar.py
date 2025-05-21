@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
 TOWNS = ["ALBURGH", "SOUTH HERO", "GLOVER"]
 
 def run():
@@ -36,6 +35,8 @@ def print_total_nums(df):
     metername = "data/VEC_meter_number_data.parquet"
     meterdf = pd.read_parquet(metername)
 
+    print("All Substations         ", (df["Status"]!= "Cancelled").sum(), end=" / ")
+    print(len(meterdf))
     for sub, name in zip([28, 29, 43], ["ALBURGH", "SOUTH HERO", "GLOVER"]):
         tmp = df[df["City/Town"] == name]
         n_pv = (tmp["Status"] != "Cancelled").sum()
