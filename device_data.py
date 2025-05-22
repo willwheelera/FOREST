@@ -15,7 +15,7 @@ def get_meter_data():
     meter_data = pd.read_parquet(datapath+"VEC_meter_number_data.parquet")
     clean_meter_numbers(meter_data)
     gen_data = pd.read_parquet(datapath+"VEC_gen_meter_number_data.parquet")
-    add_device_data(device_df, meter_data, keys) # meter_data now contains boolean columns for each key
+    add_device_data(device_df, meter_data, keys) # meter_data now contains year-added columns for each key
     add_solar(meter_data, gen_data)
     return meter_data, keys
 
@@ -44,6 +44,20 @@ def clean_data(df):
         select = df["Measure"] == k
         df.loc[select, "Measure"] = v
 
+
+def add_device_data(df, meterdf, keys): # full dataset
+    df = df[[type(x) == int for x in df["Account"]]].copy()
+    df["Service Number"] = df["Account"].values // 100
+
+    measures = df[["Service Number", "Measure"]]
+    # clean separately??
+    #isdigit = meterdf["Service Number"].str.isdigit().fillna(False)
+    #meterdf.drop(index=np.where(~isdigit)[0], inplace=True)
+    for k in keys:
+        tmp = df[df["Measure"] == k]
+        tmp = measures[measures["Measure"] == k]["Service Number"].values
+        meterdf[k] = [int(x) in tmp for x in meterdf["Service Number"].values]
+    
 
 def add_device_year_data(df, meterdf, keys): # full dataset
     df = df[[type(x) == int for x in df["Account"]]].copy()
