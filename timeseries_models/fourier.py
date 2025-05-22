@@ -19,7 +19,8 @@ def run():
     iszero = df.sum(axis=0) == 0
     df.drop(columns=iszero[iszero].index.values, inplace=True)
 
-    pca(df)
+    #pca(df)
+    plot_1dfft(df)
 
 def plot_means(df):
     means = df.values.mean(axis=0)
