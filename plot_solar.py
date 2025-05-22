@@ -44,13 +44,13 @@ def print_total_nums(df):
         print(f"Substation {sub} {name:<10} {n_pv} / {nmeter}")
 
 def plot(df):
-    #df = df[df["City/Town"].isin(TOWNS)]
+    df = df[df["City/Town"].isin(TOWNS)]
     df = df[~df["In-Service Date"].isna()]
     df = df.sort_values(by="In-Service Date")
 
     sns.histplot(
         data=df,
-        #hue="City/Town",
+        hue="City/Town",
         x="In-Service Date",
         binwidth=365,
         multiple="dodge",
@@ -58,7 +58,7 @@ def plot(df):
         kde=True,
         kde_kws=dict(bw_adjust=0.5),
     )
-    plt.savefig("figures/solar_growth_total.pdf", bbox_inches="tight")
+    plt.savefig("figures/solar_growth.pdf", bbox_inches="tight")
     plt.show()
 
 
