@@ -13,7 +13,7 @@ import tensorly.decomposition as td
 def run():
     timer = Timer()
     y = np.load("y.npy")
-    if os.path.exists("X.npy"):
+    if os.path.exists("M.npy"):
         S = np.load("M.npy")
     else:
         fname_ami = "../data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
@@ -39,6 +39,8 @@ def run():
     print(y.dtype, y.shape, y.sum())
     print(S.dtype, S.shape)
 
+
+def train_model(S, y):
     w = len(y) / (2*y.sum())
     w_ = len(y) / (2*(~y).sum())
     print(w, w_)
