@@ -13,8 +13,9 @@ import tensorly.decomposition as td
 def run():
     timer = Timer()
     y = np.load("y.npy")
-    if os.path.exists("M.npy"):
-        S = np.load("M.npy")
+    datafile = "M13.npy"
+    if os.path.exists(datafile):
+        S = np.load(datafile)
     else:
         fname_ami = "../data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
         ami = pd.read_parquet(fname_ami)
@@ -33,14 +34,62 @@ def run():
         #S = parafac(ami)
         #s_y = np.concatenate((S, y[:, np.newaxis]), axis=1)
         #np.save("S_y.npy", s_y)
-        #S = marginals(ami)
-        #np.save("M.npy", S)
+        
+        data = ami.values[:8736].reshape(13, 28, 24, -1)
+        S = data.mean(axis=1).reshape(13*24, -1).T
+        #S = max_marginals(ami)
+        
+        np.save(datafile, S)
         
     print(y.dtype, y.shape, y.sum())
     print(S.dtype, S.shape)
 
+    plot_by_class(S, y)
+
+def plot_by_class(S, y):
+    keep = S.max(axis=1) > 0.1
+    print("discarding", (~keep).sum())
+    S = S[keep]
+    y = y[keep]
+
+    has_pv = S.min(axis=1) < 0
+    has_hp = y > 0
+    gens = np.where(has_pv)
+    S_ = S.reshape(-1, 13, 24)
+    S = S_.mean(axis=1)
+    toosmall = np.where(S[:, 11] < 1e-6)
+    print("gens", len(gens[0]))
+    print("hp", has_hp.sum())
+    print("gen and hp?", has_hp[gens].sum())
+    print("where too small", toosmall[0])
+    print(S[toosmall, 11])
+    data = {}
+    data["hp"] = S[has_hp & ~has_pv].mean(axis=0)
+    data["pv"] = S[~has_hp & has_pv].mean(axis=0)
+    data["no"] = S[~(has_hp | has_pv)].mean(axis=0)
+    data["both"] = S[(has_hp & has_pv)].mean(axis=0)
+    for k, v in data.items():
+        plt.plot(v, label=k)
+    plt.legend()
+    plt.show()
+    
+
+def plot_loads(S, y):
+    s_ = S.reshape(-1, 13, 24)
+    s_  = s_ / (np.abs(s_[:, [5]]) + 1)
+    #S = s_.reshape(-1, 13*24)
+
+    inds = np.lexsort((S.max(axis=1), y))
+
+    #train_model(S, y)
+    plt.plot(np.amax(S[inds], axis=1))
+    plt.plot(y[inds])
+    plt.xlabel("meters")
+    plt.ylabel("max hourly load")# div by May")
+    plt.show()
 
 def train_model(S, y):
+    timer = Timer()
     w = len(y) / (2*y.sum())
     w_ = len(y) / (2*(~y).sum())
     print(w, w_)
@@ -69,10 +118,10 @@ def train_model(S, y):
 
     print(clf.score(S, y))
 
-    tree = clf.tree_
-    print("tree")
-    print("depth", tree.max_depth)
-    print("nodes", tree.node_count)
+    #tree = clf.tree_
+    #print("tree")
+    #print("depth", tree.max_depth)
+    #print("nodes", tree.node_count)
 
 
 def parafac(df):
@@ -89,6 +138,14 @@ def marginals(df):
     W = data.sum(axis=(1, 2))
     D = data.sum(axis=(0, 2))
     H = data.sum(axis=(0, 1))
+    v = np.concatenate((W, D, H), axis=0)
+    return v.T
+    
+def max_marginals(df):
+    data = df.values[:8736].reshape(52, 7, 24, -1)
+    W = data.max(axis=(1, 2))
+    D = data.max(axis=(0, 2))
+    H = data.max(axis=(0, 1))
     v = np.concatenate((W, D, H), axis=0)
     return v.T
     
