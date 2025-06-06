@@ -4,8 +4,8 @@ import pickle
 import sys
 sys.path.append("../")
 
-substation_name = "South_Alburgh"
-pkl_file = f"../Feeder_Data/{substation_name}/Python_Model/{substation_name}_Model.pkl"
+substation_name = "Alburgh"
+pkl_file = f"data/{substation_name}/{substation_name}_Model.pkl"
 with open(pkl_file, "rb") as file:
     ps_model = pickle.load(file)
 
