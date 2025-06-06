@@ -14,6 +14,10 @@ def visualize_network(psm, highlight_node=None):
         n = psm.Node_Dict[highlight_node]
         plt.scatter(n.X_coord, n.Y_coord, c="g", s=0.6)
     plt.scatter(*doubles_xy, c="r", s=0.6)
+
+
+    tf = psm.Branch_Dict["E72805203096474"]
+    plt.scatter(tf.X_coord, tf.Y_coord)
     plt.show()
     
 
@@ -49,4 +53,10 @@ def visualize_pf_result(psm, node_df, branch_df, fileprefix=""):
     plt.savefig(fileprefix+"result_map.pdf", bbox_inches="tight")
     plt.show()
             
-
+if __name__ == "__main__":
+    import sys
+    sys.path.append("../MAPLE_BST_Demo/")
+    import pickle
+    with open("data/Alburgh/Alburgh_Model.pkl", "rb") as f:
+        psm = pickle.load(f)
+    visualize_network(psm)
