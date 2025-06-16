@@ -5,15 +5,30 @@ import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 from functools import reduce
+from read_in_data import read_transformer_ratings
 
 def run():
     path = "data/Alburgh/"
     fname = path+"transformer_loads.parquet"
-    ratings = pd.read_csv(path+"transformer_ratings.csv", index_col=0)
-    print(ratings.columns)
-    ratings.set_index("tf_name", inplace=True)
+    ratings = read_transformer_ratings("Alburgh")
     with open(path+"transformer_map.pkl", "rb") as file:
         maps = pickle.load(file)
+    a = maps["load_map"]
+
+    # Look for xfmrs serving many meters
+    if False:
+        meters, xfmrs = list(zip(*a))
+        xfmr, counts = np.unique(xfmrs, return_counts=True)
+        df = pd.DataFrame(dict(xfmr=xfmr, counts=counts))
+        df.sort_values(by="counts", inplace=True)
+        print(df.tail(25))
+        meter, mcounts = np.unique(meters, return_counts=True)
+        df = pd.DataFrame(dict(meter=meter, counts=mcounts))
+        df.sort_values(by="counts", inplace=True)
+        print(df.head(5))
+        print(df.tail(25))
+        quit()
+
     if os.path.exists(fname):
         load_tfdf = pd.read_parquet(fname)
     else:
@@ -30,17 +45,9 @@ def run():
         gen_tfdf = meters_to_transformers(maps["gen_map"], df)
         gen_tfdf.to_parquet(path+"transformer_gens.parquet")
 
-    for meter, tf_name in maps["load_map"]:
-        if tf_name == "E72805203096474":
-            print(meter, tf_name)
-            high_meter = meter
-            high_xfmr = tf_name
-
     tfdf = load_tfdf.subtract(gen_tfdf, fill_value=0.)
-
-
     ratings = ratings.loc[tfdf.columns]
-    tfdf = (tfdf.T / ratings.values).T
+    tfdf = (tfdf / ratings["ratedKVA"].values)
 
     #plot_margins(tfdf)
     week, indices = pick_highest_week(tfdf) 
@@ -56,11 +63,12 @@ def run():
 def plot_highest_transformers(tfdf, ratings, indices, title=""):
     plt.figure(figsize=(6, 3))
     tfdf = tfdf[indices]
-    inds = tfdf.max(axis=0).argsort()[-10:]
+    inds = tfdf.abs().max(axis=0).argsort()[-10:]
     data = tfdf.iloc[:, inds]
     plt.plot(data, label=ratings.index[inds])
     plt.axhline(y=1, ls=":")
-    plt.xticks(rotation=45, horizontalalignment="right")
+    plt.axhline(y=-1, ls=":")
+    plt.xticks(rotation=30, horizontalalignment="right")
     plt.ylabel("transformer power / capacity")
     plt.title(title)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
