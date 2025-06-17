@@ -16,13 +16,13 @@ def visualize_network(psm, highlight_node=None):
     plt.scatter(*doubles_xy, c="r", s=0.6)
 
 
-    for tfname in ['E72805103080326', 'E72805103097973', 'E72805203078706', 'E72805203078859', 'E72805203079531', ]:
-        tf = psm.Branch_Dict[tfname]
-        plt.scatter(tf.X_coord, tf.Y_coord, c="greenyellow", s=8)
-    for tfname in ['E72805203080317']:
-        tf = psm.Branch_Dict[tfname]
-        plt.scatter(tf.X_coord, tf.Y_coord, c="magenta", s=8)
-    plt.scatter(1.443920e+06,  906546.351762, marker="o", c="orange")
+    #for tfname in ['E72805103080326', 'E72805103097973', 'E72805203078706', 'E72805203078859', 'E72805203079531', ]:
+    #    tf = psm.Branch_Dict[tfname]
+    #    plt.scatter(tf.X_coord, tf.Y_coord, c="greenyellow", s=8)
+    #for tfname in ['E72805203080317']:
+    #    tf = psm.Branch_Dict[tfname]
+    #    plt.scatter(tf.X_coord, tf.Y_coord, c="magenta", s=8)
+    #plt.scatter(1.443920e+06,  906546.351762, marker="o", c="orange")
     plt.show()
     
 
