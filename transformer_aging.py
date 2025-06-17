@@ -57,7 +57,7 @@ def run():
     print(age[selection])
     print(ratings.loc[bigcols])
     
-    save=False
+    save=True
     plot_hotspot(temps[:, selection], TMIN, TMAX, label=bigcols, save=save)
     plot_loads(tfdf.values[:, selection], label=bigcols, save=save)
     plot_aging(aging[:, selection], label=bigcols, save=save)
@@ -66,7 +66,7 @@ def run():
     plt.show()
 
 def plot_hotspot(temps, TMIN, TMAX, label=None, save=True):
-    plt.figure()
+    plt.figure(figsize=(8, 3.0))
     plt.plot(temps, label=label) 
     plt.title("hot-spot temperature")
     plt.ylabel("Temperature (C)")
@@ -78,40 +78,40 @@ def plot_hotspot(temps, TMIN, TMAX, label=None, save=True):
     plt.axhline(y=140, ls=":")
     plt.xlabel("month in 2024")
     plt.xticks(np.arange(12)*24*30, np.arange(12))
-    plt.legend(bbox_to_anchor=(1.01, 1), loc='upper left')
-    plt.subplots_adjust(right=0.75)
+    plt.legend(bbox_to_anchor=(1.01, 1.05), loc='upper left')
+    plt.subplots_adjust(right=0.7)
     if save:
         plt.savefig("figures/hotspot_temperature.pdf", bbox_inches="tight")
 
 def plot_loads(tfdf_vals, label=None, save=True):
-    plt.figure()
+    plt.figure(figsize=(8, 3.0))
     plt.plot(tfdf_vals, label=label)
     plt.axhline(y=1, ls=":")
     plt.axhline(y=-1, ls=":")
     plt.ylabel("loads / rated kVA")
     plt.title("transformer loading")
-    plt.legend(bbox_to_anchor=(1.01, 1), loc='upper left')
-    plt.subplots_adjust(right=0.75)
+    plt.legend(bbox_to_anchor=(1.01, 1.05), loc='upper left')
+    plt.subplots_adjust(right=0.7)
     plt.xlabel("month in 2024")
     plt.xticks(np.arange(12)*24*30, np.arange(12))
     if save:
         plt.savefig("figures/transformer_loads.pdf", bbox_inches="tight")
 
 def plot_aging(aging, label=None, save=True):
-    plt.figure()
+    plt.figure(figsize=(8, 3.0))
     plt.plot(aging, label=label)
     plt.axhline(y=20.55, ls=":")
     plt.ylabel("Effective age (years)")
     plt.title("transformer aging")
-    plt.legend(bbox_to_anchor=(1.01, 1), loc='upper left')
-    plt.subplots_adjust(right=0.75)
+    plt.legend(bbox_to_anchor=(1.01, 1.05), loc='upper left')
+    plt.subplots_adjust(right=0.7)
     plt.xlabel("month in 2024")
     plt.xticks(np.arange(12)*24*30, np.arange(12))
     if save:
         plt.savefig("figures/transformer_aging.pdf", bbox_inches="tight")
 
 def plot_age(age, save=True):
-    plt.figure()
+    plt.figure(figsize=(3, 3))
     plt.semilogy(np.sort(age)[::-1])
     plt.axhline(y=1)
     plt.xlabel("transformer index (sorted)")
