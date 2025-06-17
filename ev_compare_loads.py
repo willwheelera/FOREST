@@ -9,33 +9,16 @@ import matplotlib.pyplot as plt
 
 
 def run():
-
     df = pd.read_parquet(f"data/Alburgh/home_charger_loads.parquet")
     df = avg_month(df)
     df = remove_gens(df)
     avgev = pd.DataFrame(df.pop("nocharger"))
     avgev["charger"] = df.mean(axis=1)
     avgev["diff"] = (avgev["charger"] - avgev["nocharger"]) / 2
-    avgev["mean"] = (avgev["charger"] + avgev["nocharger"]) / 2
+    #avgev["mean"] = (avgev["charger"] + avgev["nocharger"]) / 2
 
-    fftavgev = pd.DataFrame(data=real_fft(avgev.values), index=avgev.index, columns=avgev.columns)
-    fftdf = pd.DataFrame(data=real_fft(df.values), index=df.index, columns=df.columns)
+    plot_charger_load(df, avgev, save=False)
 
-    corr = np.corrcoef(fftdf.values, rowvar=False)
-    vals, vecs = np.linalg.eigh(corr)
-    print("pca vals", vals)
-    fftdf["PCA"] = fftdf.values @ vecs[:, -1]
-    plot_charger_load(fftdf, fftavgev, save=False)
-
-def real_fft(x):
-    n = len(x)
-    x = x.astype(float)
-    fft = np.fft.fft(x, axis=0)
-    print(x.shape, fft.shape)
-    
-    x[:n//2] = fft[:n//2].real
-    x[n//2:] = fft[:n//2].imag
-    return np.real_if_close(x)
 
 def plot_charger_load(df, avgev, save=True):
     xpts = np.arange(12*24)
@@ -43,7 +26,7 @@ def plot_charger_load(df, avgev, save=True):
     df.plot(ls="-", lw=.5, legend=False)
     if "PCA" in df.columns:
         plt.plot(xpts, df["PCA"].values, lw=1.5)
-    plt.xticks(np.arange(12)*24)#, np.arange(12)+1)
+    plt.xticks(np.arange(12)*24, np.arange(12)+1)
     
     plt.title("Chargers each month")
     if save:
@@ -51,8 +34,9 @@ def plot_charger_load(df, avgev, save=True):
 
     avgev.plot()
     plt.title("Avg load w(/o) home charger")
-    #plt.xticks(np.arange(12)*24, np.arange(12)+1)
+    plt.xticks(np.arange(12)*24, np.arange(12)+1)
     plt.legend(bbox_to_anchor=(1, 1))
+    plt.subplots_adjust(right=0.75)
     if save:
         plt.savefig("figures/home_charger_avg.pdf", bbox_inches="tight")
     plt.show()
