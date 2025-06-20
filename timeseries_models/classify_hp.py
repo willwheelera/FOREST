@@ -45,6 +45,7 @@ def run():
     print(S.dtype, S.shape)
 
     plot_by_class(S, y)
+    plot_loads(S, y)
 
 def plot_by_class(S, y):
     keep = S.max(axis=1) > 0.1
