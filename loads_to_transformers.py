@@ -13,20 +13,10 @@ def run():
     ratings = read_transformer_ratings("Alburgh")
     with open(path+"transformer_map.pkl", "rb") as file:
         maps = pickle.load(file)
-    a = maps["load_map"]
+    
 
-    # Look for xfmrs serving many meters
-    if False:
-        meters, xfmrs = list(zip(*a))
-        xfmr, counts = np.unique(xfmrs, return_counts=True)
-        df = pd.DataFrame(dict(xfmr=xfmr, counts=counts))
-        df.sort_values(by="counts", inplace=True)
-        print(df.tail(25))
-        meter, mcounts = np.unique(meters, return_counts=True)
-        df = pd.DataFrame(dict(meter=meter, counts=mcounts))
-        df.sort_values(by="counts", inplace=True)
-        print(df.head(5))
-        print(df.tail(25))
+    if True: # Look for xfmrs serving many meters
+        check_many_meters(maps["load_map"])
         quit()
 
     if os.path.exists(fname):
@@ -59,6 +49,41 @@ def run():
     plt.savefig("figures/alburgh_highest_xfmrs_hour.pdf", bbox_inches="tight")
 
     plt.show()
+
+def check_many_meters(a):
+    meters, xfmrs = list(zip(*a))
+    xfmr, counts = np.unique(xfmrs, return_counts=True)
+    xdf = pd.DataFrame(dict(xfmr=xfmr, counts=counts))
+    xdf.sort_values(by="counts", inplace=True)
+    xdf.reset_index(inplace=True)
+    xdf = xdf[:-1]
+    print(xdf.tail(25))
+    meter, mcounts = np.unique(meters, return_counts=True)
+    mdf = pd.DataFrame(dict(meter=meter, counts=mcounts))
+    mdf.sort_values(by="counts", inplace=True)
+    mdf.reset_index(inplace=True)
+    print(mdf.head(5))
+    print(mdf.tail(25))
+
+    fig, axs = plt.subplots(2, 2)
+    axs[0, 0].plot(xdf.counts)
+    axs[1, 0].plot(mdf.counts)
+    y = np.bincount(xdf.counts)[:]
+    axs[0, 1].bar(np.arange(len(y)), y, log=True)
+    y = np.bincount(mdf.counts)[:]
+    axs[1, 1].bar(np.arange(len(y)), y, log=True)
+    axs[0, 0].set_title("raw numbers")
+    axs[0, 1].set_title("histogram")
+    axs[0, 1].set_xlabel("# meters per transformer")
+    axs[1, 1].set_xlabel("# transformers per meter")
+    axs[0, 0].set_ylabel("# meters")
+    axs[1, 0].set_ylabel("# transformers")
+    axs[0, 0].set_xlabel("transformer index")
+    axs[1, 0].set_xlabel("meter index")
+    plt.tight_layout()
+    plt.savefig("figures/many_meters.pdf", bbox_inches="tight")
+    plt.show()
+    quit()
 
 def plot_highest_transformers(tfdf, ratings, indices, title=""):
     plt.figure(figsize=(6, 3))
