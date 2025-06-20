@@ -75,6 +75,7 @@ def plot_1dfft(df):
     plt.semilogy(a[inds], label="mean")
     plt.semilogy(gx[ginds], label="gmax")
     plt.semilogy(ga[ginds], label="gmean")
+    plt.legend()
     plt.show()
 
 def phase_fft(x, axis=None):
