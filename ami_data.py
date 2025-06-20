@@ -9,10 +9,11 @@ sys.path.append("/home/wwheele1/MAPLE_BST_Demo")
 from AMI_Player_Tools.parse_ami_data import format_ami_data
 
 
-def save_corrected_data():
+def save_corrected_data(year=2024):
     t0 = time.perf_counter()
-    loads = pd.read_parquet("data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load.parquet")
-    gens = pd.read_parquet("data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Gen.parquet")
+    from_prefix = "/home/wwheele1/_FOREST/South_Alburgh/data_files"
+    loads = pd.read_parquet(f"{from_prefix}/{year}-01-01_{year}-12-31_South_Alburgh_Load.parquet")
+    gens = pd.read_parquet(f"{from_prefix}/{year}-01-01_{year}-12-31_South_Alburgh_Gen.parquet")
     loadmeter = read_meter_data("data/VEC_meter_number_data.parquet")
     genmeter = read_meter_data("data/VEC_gen_meter_number_data.parquet")
     loadmeter = loadmeter[loadmeter["Substation"] == 28]
@@ -22,8 +23,8 @@ def save_corrected_data():
     loads, gens = format_ami_data(loads, gens, loadmeter, genmeter)
     printtime("formatted", t0)
     
-    loads.to_parquet("data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet")
-    gens.to_parquet("data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Gen_corrected.parquet")
+    loads.to_parquet(f"data/Alburgh/{year}-01-01_{year}-12-31_South_Alburgh_Load_corrected.parquet")
+    gens.to_parquet(f"data/Alburgh/{year}-01-01_{year}-12-31_South_Alburgh_Gen_corrected.parquet")
     printtime("saved", t0)
 
 def read_meter_data(fname):
@@ -114,4 +115,6 @@ def print_time(s, t0):
 
 
 if __name__ == "__main__":
-    save_corrected_data()
+    save_corrected_data(2017)
+    save_corrected_data(2019)
+    save_corrected_data(2022)
