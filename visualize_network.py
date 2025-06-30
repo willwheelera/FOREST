@@ -2,28 +2,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def visualize_network(psm, highlight_node=None):
-    doubles = [obj for obj in psm.Nodes if len(obj.incoming_branches) > 1]
-    print([d.name for d in doubles])
-    doubles_xy = list(zip(*[(n.X_coord, n.Y_coord) for n in doubles]))
-
+def visualize_network(psm=None, nodes=(), xfmrs=()):
+    if psm is None:
+        psm = read_psm()
     node_xy = list(zip(*[(n.X_coord, n.Y_coord) for n in psm.Loads]))
     fig = plt.figure(figsize=(6, 6))
-    h = plt.scatter(*node_xy, s=0.4)
-    if highlight_node is not None:
-        n = psm.Node_Dict[highlight_node]
+    h = plt.scatter(*node_xy, s=0.4) # plot all loads for context
+    for _node in nodes:
+        n = psm.Node_Dict[_node]
         plt.scatter(n.X_coord, n.Y_coord, c="g", s=0.6)
-    plt.scatter(*doubles_xy, c="r", s=0.6)
-
 
     #for tfname in ['E72805103080326', 'E72805103097973', 'E72805203078706', 'E72805203078859', 'E72805203079531', ]:
-    #    tf = psm.Branch_Dict[tfname]
-    #    plt.scatter(tf.X_coord, tf.Y_coord, c="greenyellow", s=8)
-    #for tfname in ['E72805203080317']:
-    #    tf = psm.Branch_Dict[tfname]
-    #    plt.scatter(tf.X_coord, tf.Y_coord, c="magenta", s=8)
-    #plt.scatter(1.443920e+06,  906546.351762, marker="o", c="orange")
-    plt.show()
+    for tfname in xfmrs:
+        tf = psm.Branch_Dict[tfname]
+        plt.scatter(tf.X_coord, tf.Y_coord, c="greenyellow", s=8)
     
 
 def visualize_pf_result(psm, node_df, branch_df, fileprefix=""):
@@ -58,10 +50,15 @@ def visualize_pf_result(psm, node_df, branch_df, fileprefix=""):
     plt.savefig(fileprefix+"result_map.pdf", bbox_inches="tight")
     plt.show()
             
-if __name__ == "__main__":
-    import sys
-    sys.path.append("../MAPLE_BST_Demo/")
+
+def read_psm():
+    #import sys
+    #sys.path.append("../MAPLE_BST_Demo/")
     import pickle
     with open("data/Alburgh/Alburgh_Model.pkl", "rb") as f:
         psm = pickle.load(f)
-    visualize_network(psm)
+    return psm
+
+if __name__ == "__main__":
+    visualize_network()
+    plt.show()
