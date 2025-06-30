@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from functools import reduce
 from read_in_data import read_transformer_ratings
+from visualize_network import visualize_network
 
 def run():
     path = "data/Alburgh/"
@@ -82,6 +83,9 @@ def check_many_meters(a):
     axs[1, 0].set_xlabel("meter index")
     plt.tight_layout()
     plt.savefig("figures/many_meters.pdf", bbox_inches="tight")
+
+    plt.figure()
+    visualize_network(xfmrs=xdf[-10:]["xfmr"].values)
     plt.show()
     quit()
 
