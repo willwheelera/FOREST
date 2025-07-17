@@ -9,7 +9,11 @@ def run():
     device_df = pd.read_excel(datapath+"All T3 through 2024.xlsx")
     clean_data(device_df)
 
-    chargers = device_df[device_df["Measure"] == "home charger"]
+    device_df = device_df[device_df["Substation"] == 28]
+
+    #key = "home charger"
+    key = "cchp"
+    chargers = device_df[device_df["Measure"] == key]
 
     isstr = chargers["Year"].str.isnumeric() == False
     index = chargers.index[isstr]
@@ -23,6 +27,7 @@ def run():
     dates = pd.to_datetime(chargers["Date of purchase"])
     dates = dates.sort_values()
     plt.plot(dates, np.arange(len(dates)))
+    plt.title(key)
     plt.show()
 
 
