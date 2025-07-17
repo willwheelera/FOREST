@@ -5,6 +5,12 @@ import numpy as np
 
 names = ["BURLINGTON INTERNATIONAL AIRPORT, VT US"]#, "ESSEX JUNCTION VERMONT, VT US", "SOUTH HERO, VT US"]
 
+def generate():
+    weather = load_data()
+    weather = interpolate(weather)
+    weather = (weather - 32) * 5/9
+    return weather
+
 def load_data(path=""):
     fname = path+"weather_data/burlington_weather_2024.csv"
     df = pd.read_csv(fname)
