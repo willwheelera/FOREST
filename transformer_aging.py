@@ -27,8 +27,8 @@ def run():
     # Read in transformer loads
     load_fname = path+"transformer_loads.parquet"
     load_tfdf = pd.read_parquet(load_fname)
-    gen_tfdf = pd.read_parquet(load_fname.replace("load", "gen"))
-    tfdf = load_tfdf.subtract(gen_tfdf, fill_value=0.)
+    #gen_tfdf = pd.read_parquet(load_fname.replace("load", "gen"))
+    tfdf = load_tfdf#.subtract(gen_tfdf, fill_value=0.)
     ratings = ratings.loc[tfdf.columns]
     tfdf = (tfdf / ratings["ratedKVA"].values)[:8760] / 0.9 # power factor
     tfdf.to_parquet(path+tf_fname)
@@ -129,7 +129,7 @@ def temperature_equations(loading, temperature, T0=110):
     """
     loading: transformer loading DataFrame, normalized by rated kVA, array(time, xfmr)
     temperature: ambient temperature, array(time) 
-    T0: starting hottest-spot temperature of windings
+    T0: starting hottest-spot temperature of windings; scalar or array(xfmr)
     """
     # if you have avg(load) = L over an hour, what is avg(load^2)? L^2 + variance
     external = ACOEFF * loading**2 + BCOEFF * temperature[:, np.newaxis] + CCOEFF
@@ -162,6 +162,12 @@ def plot_aging_curve():
 def effective_aging(T):
     FA = np.exp(-15000*(1/(T+273) - 1/383))
     return FA.cumsum(axis=0)
+
+# Martin et al, Investigation Into Modeling Australian Power Transformer Failure and Retirement Statistics
+# IEEE TRANSACTIONS ON POWER DELIVERY, VOL. 33, NO. 4, AUGUST 2018
+# Digital Object Identifier 10.1109/TPWRD.2018.2814588
+def failure_prob(age, eta=112, beta=3.5):
+    return 1 - np.exp(-(age/eta)**beta)
 
 if __name__ == "__main__":
     run()
