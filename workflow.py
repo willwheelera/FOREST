@@ -4,6 +4,8 @@ import time
 import numpy as np
 import weather_data.load_data
 import placeholders
+import sun_model
+
 
 # General outline
 
@@ -37,8 +39,8 @@ def run_instance(nyears=20, year0=2025):
 
         LH = TODO.generate_heatpump_load_profile()
         LE = TODO.generate_ev_load_profile()
-        LS = TODO.generate_solar_gen_profile()
-        L0 = TODO.generate_background_profile(Ldata)
+        LS = sun_model.generate()
+        L0 = placeholders.generate_background_profile(Ldata)
         L = H*LH + E*LE + S*LS + L0
 
         # Transformer loads

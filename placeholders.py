@@ -60,4 +60,5 @@ def size_solar(Ldata, adopt):
     new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 2 # arbitrary estimate of solar size in kW_peak
     return new_size
 
-
+def generate_background_profile(Ldata):
+    return Ldata
