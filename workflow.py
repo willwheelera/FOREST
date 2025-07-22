@@ -19,11 +19,16 @@ def run_instance(nyears=20, year0=2025):
     """
     # Read in load data -- may want to use raw data instead
     fname = "data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
-    mapfile = "" # map meters to transformers
+    mapfile = "data/Alburgh/transformer_load_map.json" # map meters to transformers
     Ldata = pd.read_parquet(fname)
     meterdf, keys = device_data.get_meter_data()
     solardf = meterdf # todo.get_solar_data()
     Hsize, Esize, Ssize = np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1])
+
+    age_curves = []
+    with open(mapfile, "r") as f:
+        load_map = json.load(f)
+    age_offset = np.zeros(len(load_map.keys()))
     
     for year in np.arange(nyears) + year0:
         H_g = placeholders.growth_rate_heatpumps(year)
@@ -39,18 +44,22 @@ def run_instance(nyears=20, year0=2025):
 
         weather = weather_data.load_data.generate()
 
-        LH = TODO.generate_heatpump_load_profile()
-        LE = TODO.generate_ev_load_profile()
+        LH = placeholders.generate_heatpump_load_profile(weather)
+        LE = placeholders.generate_ev_load_profile(Esize)
         LS = sun_model.generate()[:, np.newaxis] # just one profile
         L0 = placeholders.generate_background_profile(Ldata)
-        L = Hsize*LH + Esize*LE + Ssize*LS + L0
+        L = Hsize*LH + LE + Ssize*LS + L0
 
         # Transformer loads
-        L_tr = loads_to_transformers.convert_with_mapfile(mapfile, L)
+        L_tr = loads_to_transformers.meters_to_transformers(load_map, L)
 
         # Transformer aging
         hotspot = transformer_aging.temperature_equations(L_tr, weather, T0=T0)
         T0 = hotspot[-1] # for iterating multiple years if desired
         aging = transformer_aging.effective_aging(hotspot)
-
-
+        aging += age_offset
+        age_offset = aging[-1]
+        age_curves.append(aging)
+        
+    full_age_curve = np.concatenate(age_curves, axis=0)
+    
