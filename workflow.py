@@ -22,6 +22,7 @@ def run_instance(nyears=20, year0=2025):
     Ldata = pd.read_parquet(fname)
     meterdf, keys = device_data.get_meter_data()
     solardf = meterdf # TODO.get_solar_data()
+    Hsize, Esize, Ssize = np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1])
     
     for year in np.arange(nyears) + year0:
         H_g = placeholders.growth_rate_heatpumps(year)
@@ -31,17 +32,17 @@ def run_instance(nyears=20, year0=2025):
         adoptH = placeholders.adopt_heatpumps(Ldata, meterdf, H_g)
         adoptE = placeholders.adopt_evs(Ldata, meterdf, E_g)
         adoptS = placeholders.adopt_solar(Ldata, solardf, S_g)
-        H = placeholders.size_heatpumps(Ldata, adoptH)
-        E = placeholders.size_evs(Ldata, adoptE)
-        S = placeholders.size_solar(Ldata, adoptS)
+        Hsize += placeholders.size_heatpumps(Ldata, adoptH)
+        Esize += placeholders.size_evs(Ldata, adoptE)
+        Ssize += placeholders.size_solar(Ldata, adoptS)
 
         weather = weather_data.load_data.generate()
 
         LH = TODO.generate_heatpump_load_profile()
         LE = TODO.generate_ev_load_profile()
-        LS = sun_model.generate()
+        LS = sun_model.generate()[:, np.newaxis] # just one profile
         L0 = placeholders.generate_background_profile(Ldata)
-        L = H*LH + E*LE + S*LS + L0
+        L = Hsize*LH + Esize*LE + Ssize*LS + L0
 
         # Transformer loads
         L_tr = TODO.loads_to_transformers(L, meterdf, mapfile)
