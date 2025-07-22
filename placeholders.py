@@ -61,4 +61,4 @@ def size_solar(Ldata, adopt):
     return new_size
 
 def generate_background_profile(Ldata):
-    return Ldata
+    return Ldata.copy()
