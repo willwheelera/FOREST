@@ -51,7 +51,8 @@ def size_heatpumps(Ldata, adopt):
 
 def size_evs(Ldata, adopt):
     new_size = adopt.astype(int)
-    new_size[adopt] = 7.2 # charger peak size in kW
+    new_size[adopt] = np.random.uniform(50, 100, size=adopt.sum()) # car battery size
+    # 7.2 # charger peak size in kW
     return new_size
 
 def size_solar(Ldata, adopt):
@@ -62,3 +63,25 @@ def size_solar(Ldata, adopt):
 
 def generate_background_profile(Ldata):
     return Ldata.copy()
+
+def generate_heatpump_load_profile(temp):
+    # assume linear efficiency centered at 22C, up to 40C difference
+    # assume duty cycle averages out within the hour
+    # assume no size-dependence - just one profile
+    Tset = 22
+    power_frac = np.abs(temp - Tset) / 40
+    return np.clip(power_frac, 0, 1)
+
+def generate_ev_load_profile(Esize):
+    # suppose charging 80% battery every night
+    charge_rate = 7.2 # kW, level 2 charger
+    hasEV = Esize > 0
+    n = hasEV.sum()
+    start_time = np.random.randint(6, 12, size=n) # pm
+    duration = np.ceil(Esize * 0.8 / charge_rate)
+    profiles = np.zeros((len(Esize), 365, 24)) # start at 12pm, shift later
+    for i, j in enumerate(np.where(hasEV)[0]):
+        t0 = start_time[i]
+        profiles[j, :, t0:t0+duration] = charge_rate
+    return profiles
+
