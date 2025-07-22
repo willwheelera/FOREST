@@ -5,6 +5,7 @@ import numpy as np
 import weather_data.load_data
 import placeholders
 import sun_model
+import loads_to_transformers
 
 
 # General outline
@@ -21,7 +22,7 @@ def run_instance(nyears=20, year0=2025):
     mapfile = "" # map meters to transformers
     Ldata = pd.read_parquet(fname)
     meterdf, keys = device_data.get_meter_data()
-    solardf = meterdf # TODO.get_solar_data()
+    solardf = meterdf # todo.get_solar_data()
     Hsize, Esize, Ssize = np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1])
     
     for year in np.arange(nyears) + year0:
@@ -45,7 +46,7 @@ def run_instance(nyears=20, year0=2025):
         L = Hsize*LH + Esize*LE + Ssize*LS + L0
 
         # Transformer loads
-        L_tr = TODO.loads_to_transformers(L, meterdf, mapfile)
+        L_tr = loads_to_transformers.convert_with_mapfile(mapfile, L)
 
         # Transformer aging
         hotspot = transformer_aging.temperature_equations(L_tr, weather, T0=T0)
