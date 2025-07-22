@@ -155,7 +155,7 @@ def plot_margins(tfdf):
 
     plt.show()
 
-def meters_to_transformers(meter_map, loaddf):
+def meters_to_transformers_tuples(meter_map, loaddf):
     tfs = np.unique([m[1] for m in meter_map])
     tfdf = pd.DataFrame(data=0., index=loaddf.index, columns=tfs)
     for m in meter_map:
@@ -163,6 +163,19 @@ def meters_to_transformers(meter_map, loaddf):
             tfdf.loc[:, m[1]] += loaddf[m[0]].values
     return tfdf
 
+def meters_to_transformers(meter_map, loaddf):
+    tfs = list(meter_map.keys())
+    tfdf = pd.DataFrame(data=0., index=loaddf.index, columns=tfs)
+    for tf, meters in meter_map.items():
+        for m in meters:
+            if m in loaddf.columns:
+                tfdf.loc[:, tf] += loaddf[m].values
+    return tfdf
+
+def convert_with_mapfile(mapfile, loaddf):
+    with open(mapfile, "r") as f:
+        meter_map = json.load(f)
+    return meters_to_transformers(meter_map, loaddf)
 
 if __name__ == "__main__":
     run()
