@@ -43,7 +43,7 @@ def run():
     # Solve for transformer temperature and aging 
     t0 = time.perf_counter()
     temps = temperature_equations(tfdf.values, weather)
-    aging = effective_aging(temps) / 8760 # in years
+    aging = effective_aging(temps) # in years
     age = aging[-1]
     ratings["age"] = age
     ratings["index"] = np.arange(len(ratings))
@@ -161,7 +161,7 @@ def plot_aging_curve():
 
 def effective_aging(T):
     FA = np.exp(-15000*(1/(T+273) - 1/383))
-    return FA.cumsum(axis=0)
+    return FA.cumsum(axis=0) / 8760 # in years
 
 # Martin et al, Investigation Into Modeling Australian Power Transformer Failure and Retirement Statistics
 # IEEE TRANSACTIONS ON POWER DELIVERY, VOL. 33, NO. 4, AUGUST 2018
