@@ -6,25 +6,28 @@ pd.set_option('future.no_silent_downcasting', True)
 
 
 
-def get_meter_data():
-    # who has heat pumps
+def get_meter_data(prefix="VEC"):
     datapath = "/home/wwheele1/FOREST/data/"
     device_df = pd.read_excel(datapath+"All T3 through 2024.xlsx")
     clean_data(device_df)
     keys = ["cchp", "aev", "home charger", "hpwh", "centrally ducted", "mower", "phev", "battery"]
-    meter_data = pd.read_parquet(datapath+"VEC_meter_number_data.parquet")
+    meter_data = pd.read_parquet(datapath+f"{prefix}_meter_number_data.parquet")
     clean_meter_numbers(meter_data)
-    gen_data = pd.read_parquet(datapath+"VEC_gen_meter_number_data.parquet")
+    gen_data = pd.read_parquet(datapath+f"{prefix}_gen_meter_number_data.parquet")
     add_device_data(device_df, meter_data, keys) # meter_data now contains year-added columns for each key
     add_solar(meter_data, gen_data)
     return meter_data, keys
 
+def match_meter_numbers(meterdf, Ldata):
+    pass
 
 def clean_meter_numbers(meterdf):
     for key in ["Meter Number", "Service Number"]:
         isdigit = meterdf[key].str.isnumeric().fillna(False).astype(bool)
         meterdf.drop(index=np.where(~isdigit)[0], inplace=True)
-        meterdf.reset_index(inplace=True)
+        meterdf.reset_index(inplace=True, drop=True)
+    meterdf.drop_duplicates(subset=["Meter Number", "Service Number"], inplace=True)
+    meterdf["Meter Number"] = meterdf["Meter Number"].astype(int)
 
 def add_solar(meter_data, gen_data):
     meter_data["solar"] = meter_data["Service Number"].isin(gen_data["Service Number"])
@@ -92,5 +95,16 @@ def select_data(df, **kwargs):
     return df
 
 
+def save_subset(substation=28):
+    datapath = "/home/wwheele1/FOREST/data/"
+    df = pd.read_parquet(datapath+"VEC_meter_number_data.parquet")
+    df = df[df["Substation"] == str(substation)]
+    df.to_parquet(datapath+f"sub{substation}_meter_number_data.parquet")
+    df = pd.read_parquet(datapath+"VEC_gen_meter_number_data.parquet")
+    df = df[df["Substation"] == str(substation)]
+    df.to_parquet(datapath+f"sub{substation}_gen_meter_number_data.parquet")
+
 if __name__ == "__main__":
-    get_meter_data()
+    #save_subset()
+    df, keys = get_meter_data("sub28")
+    print(df)
