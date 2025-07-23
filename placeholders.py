@@ -36,28 +36,28 @@ def adopt_heatpumps(Ldata, meterdf, H_g):
     return _adopt(can_adopt, "cchp", meterdf, H_g)
 
 def adopt_evs(Ldata, meterdf, E_g):
-    can_adopt = Ldata.abs().mean(axis=0) > 0.2 # someone lives there
+    can_adopt = Ldata[150*24:260*24].abs().mean(axis=0) > 0.2 # used in summer
     return _adopt(can_adopt, "home charger", meterdf, E_g)
 
 def adopt_solar(Ldata, solardf, S_g):
-    can_adopt = Ldata.abs().mean(axis=0) > 0.2 # someone lives there
+    can_adopt = Ldata[150*24:260*24].abs().mean(axis=0) > 0.2 # used in summer
     return _adopt(can_adopt, "solar", solardf, S_g)
 
 def size_heatpumps(Ldata, adopt):
     newcols = Ldata.columns[adopt]
-    new_size = adopt.astype(int)
+    new_size = adopt.astype(float)
     new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 3 # arbitrary estimate of hp size in kW
     return new_size
 
 def size_evs(Ldata, adopt):
-    new_size = adopt.astype(int)
+    new_size = adopt.astype(float)
     new_size[adopt] = np.random.uniform(50, 100, size=adopt.sum()) # car battery size
     # 7.2 # charger peak size in kW
     return new_size
 
 def size_solar(Ldata, adopt):
     newcols = Ldata.columns[adopt]
-    new_size = adopt.astype(int)
+    new_size = adopt.astype(float)
     new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 2 # arbitrary estimate of solar size in kW_peak
     return new_size
 
@@ -83,5 +83,7 @@ def generate_ev_load_profile(Esize):
     for i, j in enumerate(np.where(hasEV)[0]):
         t0 = start_time[i]
         profiles[j, :, t0:t0+duration] = charge_rate
+    profiles = profiles.reshape(-1, 8760)
+    profiles = np.roll(profiles, 12, axis=1).T
     return profiles
 
