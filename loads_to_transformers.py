@@ -177,5 +177,37 @@ def convert_with_mapfile(mapfile, loaddf):
         meter_map = json.load(f)
     return meters_to_transformers(meter_map, loaddf)
 
+
+def meter_to_transformer_matrix(meter_map, columns):
+    meter_map = [l for l in meter_map if l[0] in columns]
+    tfs = np.unique([m[1] for m in meter_map])
+    mapdf = pd.DataFrame(data=0., index=columns, columns=tfs)
+    for m in meter_map:
+        mapdf.loc[m[0], m[1]] = 1.
+    return mapdf
+
+
+class MeterToTransformerAggregator:
+    def __init__(self, meter_map, columns):
+        meter_map = [l for l in meter_map if l[0] in columns]
+        tfs = np.unique([m[1] for m in meter_map])
+        mapdf = pd.DataFrame(data=0., index=columns, columns=tfs)
+        # Try no sparse
+        #mapdf = mapdf.astype(pd.SparseDtype("float", 0.))
+        for m in meter_map:
+            if m[0] in columns:
+                mapdf.loc[m[0], m[1]] += 1.
+        self.map = mapdf.values#sparse.to_coo()
+        self.meters = columns
+        self.tfs = mapdf.columns
+    
+    def meters_to_transformers(self, loaddf):
+        # loaddf needs to have columns matching self.columns
+        return loaddf.values @ self.map
+        #return pd.DataFrame(data=tfdata, index=loaddf.index, columns=self.tfs)
+        
+        
+
+
 if __name__ == "__main__":
     run()
