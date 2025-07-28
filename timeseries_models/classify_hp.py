@@ -180,12 +180,13 @@ def remove_zeros(df, threshold=1):
     return df.loc[select]
 
 class Timer:
-    def __init__(self):
+    def __init__(self, fill=0):
         self.t0 = time.perf_counter()
+        self.fill = fill
 
     def print(self, s):
         t = time.perf_counter() - self.t0
-        print(s, round(t, 2), flush=True)
+        print(s.ljust(self.fill), round(t, 2), flush=True)
 
     def reset(self):
         self.t0 = time.perf_counter()
