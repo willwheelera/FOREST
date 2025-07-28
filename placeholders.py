@@ -1,10 +1,10 @@
 import numpy as np
 
 
-def estimate_logistic_rate(year, f_now, y50):
+def estimate_logistic_rate(year, f_now, y50, ynow=2024):
     x = -np.log(1/f_now - 1)
-    a = (year - y50) / x
-    return 1 / (4*a*np.cosh(x)**2)
+    a = (ynow - y50) / x
+    return 1 / (4*a*np.cosh((year-y50)/(2*a))**2)
 
 def growth_rate_heatpumps(year):
     # Alburgh
@@ -78,11 +78,11 @@ def generate_ev_load_profile(Esize):
     hasEV = Esize > 0
     n = hasEV.sum()
     start_time = np.random.randint(6, 12, size=n) # pm
-    duration = np.ceil(Esize * 0.8 / charge_rate)
+    duration = np.ceil(Esize * 0.8 / charge_rate).astype(int)
     profiles = np.zeros((len(Esize), 365, 24)) # start at 12pm, shift later
     for i, j in enumerate(np.where(hasEV)[0]):
         t0 = start_time[i]
-        profiles[j, :, t0:t0+duration] = charge_rate
+        profiles[j, :, t0:t0+duration[j]] = charge_rate
     profiles = profiles.reshape(-1, 8760)
     profiles = np.roll(profiles, 12, axis=1).T
     return profiles
