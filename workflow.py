@@ -23,6 +23,8 @@ def run_instance(nyears=20, year0=2025):
     solardf: dataframe with meter numbers and solar status
     mapfile: information about which meters connect to which transformers
     """
+    seed = 1 #int(round(time.time() % 1e8, 1))
+    np.random.seed(seed)
     timer = Timer(30)
     timer.print("Starting")
     # Read in load data -- may want to use raw data instead
@@ -65,12 +67,10 @@ def run_instance(nyears=20, year0=2025):
         H_g = placeholders.growth_rate_heatpumps(year)
         E_g = placeholders.growth_rate_evs(year)
         S_g = placeholders.growth_rate_solar(year)
-        print(f"growth rates: H {H_g}, E {E_g}, S {S_g}")
 
         adoptH = placeholders.adopt_heatpumps(Ldata, meterdf, H_g)
         adoptE = placeholders.adopt_evs(Ldata, meterdf, E_g)
         adoptS = placeholders.adopt_solar(Ldata, solardf, S_g)
-        print(f"adopted rates: H {adoptH.sum()}, E {adoptE.sum()}, S {adoptS.sum()}")
         Hsize += placeholders.size_heatpumps(Ldata, adoptH).values
         Esize += placeholders.size_evs(Ldata, adoptE).values
         Ssize += -placeholders.size_solar(Ldata, adoptS).values
@@ -82,6 +82,8 @@ def run_instance(nyears=20, year0=2025):
         LS = sun_model.generate()[:, np.newaxis] # just one profile
         L0 = placeholders.generate_background_profile(Ldata)
         L = Hsize*LH + LE + Ssize*LS + L0
+        pfactor = 1 - 0.1 * (~meterdf["solar"]).astype(float) # assume PF is 1 with inverter
+        L = L / pfactor # power factor
         timer.print(f"meter loads calculated")#, time.perf_counter() - t0)
 
         # Transformer loads
@@ -104,12 +106,20 @@ def run_instance(nyears=20, year0=2025):
         
     full_age_curve = np.concatenate(age_curves, axis=0)
     df = pd.DataFrame(data=full_age_curve, columns=m2t_map.columns)
-    df.to_parquet(f"output/alburgh_tf_aging_{year0}_{nyears}years.parquet")
+    df.to_parquet(f"output/alburgh_tf_aging_{year0}_{nyears}years_{seed}.parquet")
     full_load_curve = np.concatenate(load_curves, axis=0)
     df = pd.DataFrame(data=full_load_curve, columns=m2t_map.columns)
-    df.to_parquet(f"output/alburgh_tf_load_{year0}_{nyears}years.parquet")
+    df.to_parquet(f"output/alburgh_tf_load_{year0}_{nyears}years_{seed}.parquet")
     # TODO save to hdf instead of multiple parquet files
+
+    #meterdf.to_parquet(f"output/alburgh_meterdf_{seed}.parquet")
+    #m2t_map.to_parquet(f"output/alburgh_m2t.parquet")
+
+    sizes = pd.DataFrame(dict(H=Hsize, E=Esize, S=Ssize), index=m2t_map.index)
+    tf_device_sizes = m2t_map.T @ sizes
+    tf_device_sizes["age"] = df.iloc[-1]
+    tf_device_sizes.to_parquet(f"output/alburgh_tf_devices_{seed}.parquet")
     
 if __name__ == "__main__":
     
-    run_instance(nyears=10, year0=2025)
+    run_instance(nyears=5, year0=2025)
