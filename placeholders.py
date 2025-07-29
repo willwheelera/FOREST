@@ -28,7 +28,7 @@ def _adopt(can_adopt, key, meterdf, growth):
     can_adopt = can_adopt & ~meterdf[key] # doesn't already have
     add_random = np.random.random(can_adopt.sum()) < growth
     can_adopt[can_adopt] = add_random
-    meterdf.loc[:, key] = meterdf[key] & can_adopt
+    meterdf.loc[:, key] = meterdf[key] | can_adopt
     return can_adopt
 
 def adopt_heatpumps(Ldata, meterdf, H_g):
