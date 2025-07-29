@@ -28,7 +28,7 @@ def run():
     load_fname = path+"transformer_loads.parquet"
     load_tfdf = pd.read_parquet(load_fname)
     #gen_tfdf = pd.read_parquet(load_fname.replace("load", "gen"))
-    tfdf = load_tfdf#.subtract(gen_tfdf, fill_value=0.)
+    tfdf = load_tfdf#.subtract(gen_tfdf, fill_value=0.) # not necessary, already processed to include gen
     ratings = ratings.loc[tfdf.columns]
     tfdf = (tfdf / ratings["ratedKVA"].values)[:8760] / 0.9 # power factor
     tfdf.to_parquet(path+tf_fname)
@@ -180,7 +180,6 @@ def plot_failure_curve():
     plt.show()
 
 if __name__ == "__main__":
-    #run()
-    plot_failure_curve()
+    run()
 
 
