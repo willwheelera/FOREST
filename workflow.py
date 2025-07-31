@@ -116,7 +116,11 @@ def run_instance(nyears=20, year0=2025):
     #m2t_map.to_parquet(f"output/alburgh_m2t.parquet")
 
     sizes = pd.DataFrame(dict(H=Hsize, E=Esize, S=Ssize), index=m2t_map.index)
+    tmp = m2t_map.T @ meterdf.loc[m2t_map.index][["cchp", "home charger", "solar"]]
     tf_device_sizes = m2t_map.T @ sizes
+    tf_device_sizes["hasH"] = tmp["cchp"]
+    tf_device_sizes["hasE"] = tmp["home charger"]
+    tf_device_sizes["hasS"] = tmp["solar"]
     tf_device_sizes["age"] = df.iloc[-1]
     tf_device_sizes.to_parquet(f"output/alburgh_tf_devices_{seed}.parquet")
     
