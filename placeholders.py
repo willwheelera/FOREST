@@ -46,7 +46,7 @@ def adopt_solar(Ldata, solardf, S_g):
 def size_heatpumps(Ldata, adopt):
     newcols = Ldata.columns[adopt]
     new_size = adopt.astype(float)
-    new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 3 # arbitrary estimate of hp size in kW
+    new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 4 # arbitrary estimate of hp size in kW(electricity)
     return new_size
 
 def size_evs(Ldata, adopt):
@@ -58,7 +58,8 @@ def size_evs(Ldata, adopt):
 def size_solar(Ldata, adopt):
     newcols = Ldata.columns[adopt]
     new_size = adopt.astype(float)
-    new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 2 # arbitrary estimate of solar size in kW_peak
+    tmp = Ldata[newcols].sum(axis=0) / 365 / 3 # arbitrary estimate of solar size in kW_peak
+    new_size[adopt] = np.clip(tmp, a_max=25., a_min=0.)
     return new_size
 
 def generate_background_profile(Ldata):
