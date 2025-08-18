@@ -2,7 +2,14 @@ import numpy as np
 
 
 def estimate_logistic_rate(year, f_now, y50, ynow=2024):
-    x = -np.log(1/f_now - 1)
+    # f = 1 / (1 + e^[(y-y50)/a])
+    # a is timescale
+    # y50 is year that f reached 0.5
+    # f could also scale by an upper limit, to assume it never exceeds some fraction less than 1.
+    #   It would be a constant factor less than one, and would scale the growth rate proportionally.
+    #   I'm leaving it out for now.
+    # Returns the derivative of f(y) at the specified year.
+    x = -np.log(1/f_now - 1) # = (y-y0)/a
     a = (ynow - y50) / x
     return 1 / (4*a*np.cosh((year-y50)/(2*a))**2)
 
@@ -88,3 +95,9 @@ def generate_ev_load_profile(Esize):
     profiles = np.roll(profiles, 12, axis=1).T
     return profiles
 
+if __name__ == "__main__":
+    year = np.array([2025, 2030, 2035, 2040, 2045, 2050, 2055])
+    for f_now, y50 in [(.11, 2050), (0.005, 2060), (0.02, 2060)]:
+        rate = estimate_logistic_rate(year, f_now, y50, ynow=2024)
+        print(str(f_now).ljust(6), y50, end=": ")
+        print(np.around(rate*100, 2))
