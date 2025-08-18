@@ -1,4 +1,5 @@
 import numpy as np
+from numba import njit
 
 
 def estimate_logistic_rate(year, f_now, y50, ynow=2024):
@@ -72,6 +73,7 @@ def size_solar(Ldata, adopt):
 def generate_background_profile(Ldata):
     return Ldata.copy()
 
+#@njit
 def generate_heatpump_load_profile(temp):
     # assume linear efficiency centered at 22C, up to 40C difference
     # assume duty cycle averages out within the hour
@@ -80,20 +82,26 @@ def generate_heatpump_load_profile(temp):
     power_frac = np.abs(temp - Tset) / 40
     return np.clip(power_frac, 0, 1)
 
+#@njit
 def generate_ev_load_profile(Esize):
     # suppose charging 80% battery every night
     charge_rate = 7.2 # kW, level 2 charger
     hasEV = Esize > 0
     n = hasEV.sum()
-    start_time = np.random.randint(6, 12, size=n) # pm
-    duration = np.ceil(Esize * 0.8 / charge_rate).astype(int)
+    start_time = np.random.randint(6, 9, size=n) # pm
+    duration = np.ceil(Esize * 0.8 / charge_rate).astype(np.int64)
+    #duration = np.zeros(Esize.shape, dtype=np.int64)
+    #for j in range(len(Esize)):
+    #    duration[j] = int(np.ceil(Esize[j] * 0.8 / charge_rate))
     profiles = np.zeros((len(Esize), 365, 24)) # start at 12pm, shift later
     for i, j in enumerate(np.where(hasEV)[0]):
         t0 = start_time[i]
         profiles[j, :, t0:t0+duration[j]] = charge_rate
     profiles = profiles.reshape(-1, 8760)
+    #for j in range(len(profiles)):
+    #    profiles[j] = np.roll(profiles[j], 12)
     profiles = np.roll(profiles, 12, axis=1).T
-    return profiles
+    return profiles.T
 
 if __name__ == "__main__":
     year = np.array([2025, 2030, 2035, 2040, 2045, 2050, 2055])
