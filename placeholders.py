@@ -100,7 +100,7 @@ def generate_ev_load_profile(Esize):
     profiles = profiles.reshape(-1, 8760)
     #for j in range(len(profiles)):
     #    profiles[j] = np.roll(profiles[j], 12)
-    profiles = np.roll(profiles, 12, axis=1).T
+    profiles = np.roll(profiles, 12, axis=1)
     return profiles.T
 
 if __name__ == "__main__":
