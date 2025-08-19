@@ -13,11 +13,14 @@ import device_data
 import read_in_data
 from timer import Timer
 import concurrent.futures
+import multiprocessing as mp
+import os
 from numba import njit
 
 # General outline
 
-def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,), executor=None, nworkers=1):
+def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
+    fulltimer = Timer()
     timer = Timer(30, mute=False)
     timer.print("Starting")
     # Read in load data -- may want to use raw data instead
@@ -28,63 +31,112 @@ def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,), executor=None, 
     m2t_frac = (m2t_map / TF_RATINGS)
     
     timer.print("data loaded")#, time.perf_counter() - t0)
+    timer.reset()
+    ncomb = 2
+    nworkers = os.cpu_count() - ncomb - 1
 
+    # Set up MP queues
+    use_manager = False
+    if not use_manager:
+        mgr = mp
+    #with mp.Manager() as mgr:
+    if True:
+        #in_qs = {s: mgr.Queue() for s in seeds}
+        in_qs = [mgr.Queue(maxsize=int(nworkers)) for s in range(ncomb)]
+        done_events = {s: mgr.Event() for s in seeds}
+        combiners = [mp.Process(
+            target=combiner_task, 
+            args=(in_qs[i], done_events, seeds[i::ncomb], m2t_map.columns, nyears, year0, nworkers)
+        ) for i in range(ncomb)]
+        for comb in combiners:
+            comb.start()
+
+        with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
+            # Submit tasks for all seeds at once
+            seed_results = []
+            for seed in seeds:
+                res_to_meters = {}
+                _q = in_qs[seed] if use_manager else None
+                for meters in np.array_split(Ldata.columns, nworkers):
+                    res = executor.submit(
+                        _calculate_meter_loads_subset,
+                        _q,
+                        Ldata[meters], 
+                        meterdf.loc[meters], 
+                        m2t_frac.loc[meters],
+                        nyears, 
+                        year0, 
+                        seed=seed,
+                    )
+                    res_to_meters[res] = meters
+                seed_results.append((res_to_meters, seed))
+
+            # Start collecting, allowing new tasks to start as it collects
+            for i, (res_to_meters, seed) in enumerate(seed_results):
+                timer.reset()
+                timer.print(f"main reset {seed}")
+                #full_transformer_load = pd.DataFrame(
+                #    data=np.zeros((m2t_map.shape[1], nyears*8760)), 
+                #    index=m2t_map.columns,
+                #)
+                sizes = pd.DataFrame(
+                    data=np.zeros((m2t_map.shape[0], 3)), 
+                    columns=["H", "E", "S"], 
+                    index=m2t_map.index,
+                )
+                #m2t_frac = m2t_map.values / TF_RATINGS
+                timer.print(f"seed {seed} init outputs")
+                for res in concurrent.futures.as_completed(res_to_meters):
+                    meters = res_to_meters[res]
+                    if use_manager:
+                        meterdf.loc[meters], sizes.loc[meters] = res.result()
+                    else:
+                        tf_tmp, tf_cols, meterdf.loc[meters], sizes.loc[meters] = res.result()
+                        #full_transformer_load.loc[tf_cols] += tf_tmp
+                        in_qs[i%2].put((tf_tmp, tf_cols))
+                timer.print(f"seed {seed} collected results")
+                done_events[seed].set()
+
+                #load_outname = f"output/alburgh_tf_load_{year0}_{nyears}years_{seed}.parquet"
+                #full_transformer_load = full_transformer_load.T
+                #full_transformer_load.to_parquet(load_outname)
+                device_outname = f"output/alburgh_tf_devices_{year0}_{nyears}years_{seed}.parquet"
+                save_tf_devices(device_outname, meterdf, m2t_map, sizes)
+                timer.print(f"seed {seed} saved results")
+
+        for comb in combiners:
+            comb.join()
+        if not use_manager:
+            for seed in seeds:
+                in_qs[seed].close()
+                in_qs[seed].join_thread()
+    fulltimer.print("Complete")
+
+def combiner_task(in_q, done_events, seeds, tfs, nyears, year0, nworkers):
+    timer = Timer(20)
     for seed in seeds:
-        #run_instance(Ldata, meterdf, m2t_map, TF_RATINGS, nyears, year0, seed=seed)
-        #break
-
-        # Meter loads
-        res_list = []
-        for meters in np.array_split(Ldata.columns, nworkers):
-            res = executor.submit(
-                _calculate_meter_loads_subset,
-                Ldata[meters], 
-                meterdf.loc[meters], 
-                m2t_frac.loc[meters],
-                nyears, 
-                year0, 
-                seed=seed,
-            )
-            res_list.append((res, meters))
-
-        #full_meter_load = pd.DataFrame(
-        #    data=np.zeros((m2t_map.shape[0], nyears*8760)), 
-        #    index=m2t_map.index,
-        #)
+        timer.reset()
+        timer.print(f"combiner {seed} start")
+        #in_q = in_qs[seed]
+        #done_event = done_events[seed]
         full_transformer_load = pd.DataFrame(
-            data=np.zeros((m2t_map.shape[1], nyears*8760)), 
-            index=m2t_map.columns,
+            data=0.,#np.zeros((len(tfs), nyears*8760)), 
+            index=tfs,
+            columns=np.arange(nyears*8760),
         )
-        sizes = pd.DataFrame(
-            data=np.zeros((Ldata.shape[1], 3)), 
-            columns=["H", "E", "S"], 
-            index=m2t_map.index,
-        )
-        #m2t_frac = m2t_map.values / TF_RATINGS
-        timer.print("sent jobs and init arrays")
-        for res, meters in res_list:
-            t0 = Timer()
-            #full_meter_load.loc[meters], meterdf.loc[meters], sizes.loc[meters] = res.result()
-            tf_tmp, tf_cols, meterdf.loc[meters], sizes.loc[meters] = res.result()
-            t0.print("  got result", end=" ")
-            full_transformer_load.loc[tf_cols] += tf_tmp
-            t0.print("  added")
-            #m2t_frac = (m2t_map.loc[meters].values / TF_RATINGS)
-            #full_transformer_load += meter_load @ m2t_frac
-            #t0.print("  added transformer load")
-        timer.print("collected results")
-
-        #full_transformer_load = full_meter_load.T @ m2t_frac
-        full_transformer_load = full_transformer_load.T
-        timer.print("computed tf loads")
-            
-            
+        timer.print(f"combiner {seed} initd")
+        ncollect = 0
+        while ncollect < nworkers:#not done_event.is_set() or not in_q.empty():
+            try:
+                tf_tmp, tf_cols = in_q.get(timeout=0.1)
+                full_transformer_load.loc[tf_cols] += tf_tmp
+                ncollect += 1
+            except Exception:
+                continue
+        timer.print(f"combiner {seed} all added")
         load_outname = f"output/alburgh_tf_load_{year0}_{nyears}years_{seed}.parquet"
-        full_transformer_load.to_parquet(load_outname)
-        device_outname = f"output/alburgh_tf_devices_{year0}_{nyears}years_{seed}.parquet"
-        save_tf_devices(device_outname, meterdf, m2t_map, sizes)
-        timer.print("saved results")
-
+        full_transformer_load.T.to_parquet(load_outname)
+        timer.print(f"combiner {seed} saved")
             
 def _load_meter_data(fname):
     Ldata = pd.read_parquet(fname)
@@ -104,66 +156,6 @@ def _load_transformer_data(mapfile, columns):
     tf_ratings = read_in_data.read_transformer_ratings("Alburgh")
     tf_ratings = tf_ratings.loc[m2t_map.columns]
     return m2t_map, tf_ratings["ratedKVA"].values
-
-def run_instance(Ldata, meterdf, m2t_map, TF_RATINGS, nyears, year0, seed=1):
-    """
-    Ldata: past (2024) one-year dataframe, (hours, meters)
-    meterdf: dataframe with meter numbers and device adoption status
-    solardf: dataframe with meter numbers and solar status
-    mapfile: information about which meters connect to which transformers
-    """
-    #seed = 1 #int(round(time.time() % 1e8, 1))
-    np.random.seed(seed)
-    timer = Timer(30, mute=False)
-
-    meterdf = meterdf.copy()
-    solardf = meterdf # todo.get_solar_data()
-    Hsize, Esize, Ssize = np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1])
-
-    m2t_frac = m2t_map.values / TF_RATINGS
-    full_load_curve = np.zeros((nyears*8760, m2t_frac.shape[1]))
-    for year in np.arange(nyears).astype(int) + year0:
-        H_g = placeholders.growth_rate_heatpumps(year)
-        E_g = placeholders.growth_rate_evs(year)
-        S_g = placeholders.growth_rate_solar(year)
-
-        # adopt is an (nmeters,) boolean array for *new* devices to add
-        adoptH = placeholders.adopt_heatpumps(Ldata, meterdf, H_g)
-        adoptE = placeholders.adopt_evs(Ldata, meterdf, E_g)
-        adoptS = placeholders.adopt_solar(Ldata, solardf, S_g)
-        # size is an (nmeters,) array, includes all devices added so far
-        Hsize += placeholders.size_heatpumps(Ldata, adoptH).values
-        Esize += placeholders.size_evs(Ldata, adoptE).values
-        Ssize += -placeholders.size_solar(Ldata, adoptS).values
-
-        weather = weather_data.load_data.generate()
-
-        LH = placeholders.generate_heatpump_load_profile(weather)[:, np.newaxis] # just one profile
-        LE = placeholders.generate_ev_load_profile(Esize)
-        LS = sun_model.generate()[:, np.newaxis] # just one profile
-        #L0 = placeholders.generate_background_profile(Ldata)
-        #L = Hsize*LH + LE + Ssize*LS + L0
-        #pfactor = 1 - 0.1 * (~meterdf["solar"]).astype(float) # assume PF is 1 with inverter
-        #L = L / pfactor # power factor
-        L0 = placeholders.generate_background_profile(Ldata)
-        L0 += load_profiles(weather, Hsize, Esize, Ssize, (~meterdf["solar"].values).astype(float))
-        L = L0
-        timer.print(f"year {year} meter loads")
-
-        # Transformer loads
-        start = (year - year0) * 8760
-        full_load_curve[start:start+8760] = L.values @ m2t_frac
-        timer.print(f"year {year} transformer loads")
-
-    df = pd.DataFrame(data=full_load_curve, columns=m2t_map.columns)
-    df.to_parquet(f"output/alburgh_tf_load_{year0}_{nyears}years_{seed}.parquet")
-    device_outname = f"output/alburgh_tf_devices_{year0}_{nyears}years_{seed}.parquet"
-    sizes = pd.DataFrame(
-        data=dict(H=Hsize, E=Esize, S=Ssize),
-        index=m2t_map.index,
-    )
-    save_tf_devices(device_outname, meterdf, m2t_map, sizes)
-    timer.print(f"seed {seed} saved transformer loads")
 
 #@njit
 def load_profiles(weather, Hsize, Esize, Ssize, LH, LE, LS, notsolar):
@@ -186,7 +178,7 @@ def save_tf_devices(fname, meterdf, m2t_map, sizes):
     tf_device_sizes["hasS"] = tmp["solar"]
     tf_device_sizes.to_parquet(fname)
 
-def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=1):
+def _calculate_meter_loads_subset(in_q, Ldata, meterdf, m2t_frac, nyears, year0, seed=1):
     nmeters = Ldata.shape[1]
     weather = weather_data.load_data.generate()
     full_meter_load = np.zeros((nyears*8760, nmeters))
@@ -221,7 +213,11 @@ def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=
         start = (year - year0) * 8760
         full_meter_load[start:start+8760] = L / pfactor # power factor
     full_tf_load = full_meter_load @ m2t_frac
-    return full_tf_load.T, tf_cols, meterdf, np.stack([Hsize, Esize, Ssize], axis=1)
+    if in_q is None:
+        return full_tf_load.T, tf_cols, meterdf, np.stack([Hsize, Esize, Ssize], axis=1)
+    else:
+        in_q.put((full_tf_load.T, tf_cols))
+        return meterdf, np.stack([Hsize, Esize, Ssize], axis=1)
 
     
 def generate_failure_curves(nyears=20, year0=2025, seeds=(1,)):
@@ -286,17 +282,13 @@ def generate_failure_curves_parallel(nyears=0, year0=0, seeds=(1,)):
 
 
 if __name__ == "__main__":
-    seeds = (np.arange(2) + 1).astype(int)
+    seeds = (np.arange(12) + 1).astype(int)
     nyears = 20
     year0 = 4040
-    seeds = [1]
-    with concurrent.futures.ProcessPoolExecutor(max_workers=19) as executor:
-        compute_transformer_loads(
-            nyears=nyears, 
-            year0=year0, 
-            seeds=seeds, 
-            executor=executor, 
-            nworkers=executor._max_workers,
-        )
+    compute_transformer_loads(
+        nyears=nyears, 
+        year0=year0, 
+        seeds=seeds, 
+    )
     #generate_failure_curves_parallel(nyears=nyears, year0=year0, seeds=seeds)
     #collect_tf_device_average(nyears=nyears, year0=year0, seeds=seeds)
