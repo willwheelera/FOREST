@@ -126,7 +126,7 @@ TAU = 0.4090
 ACOEFF = 23.277
 BCOEFF = 0.5910
 CCOEFF = 7.060
-@numba.njit
+@numba.njit(cache=True)
 def temperature_equations(loading, temperature, T0=110):
     """
     loading: transformer loading DataFrame, normalized by rated kVA, array(time, xfmr)
@@ -168,7 +168,7 @@ def effective_aging(T):
 # Martin et al, Investigation Into Modeling Australian Power Transformer Failure and Retirement Statistics
 # IEEE TRANSACTIONS ON POWER DELIVERY, VOL. 33, NO. 4, AUGUST 2018
 # Digital Object Identifier 10.1109/TPWRD.2018.2814588
-@numba.njit
+@numba.njit(cache=True)
 def failure_prob(age, eta=112, beta=3.5):
     return 1 - np.exp(-(age/eta)**beta)
 
