@@ -54,7 +54,7 @@ def adopt_solar(Ldata, solardf, S_g):
 def size_heatpumps(Ldata, adopt):
     newcols = Ldata.columns[adopt]
     new_size = adopt.astype(float)
-    new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 4 # arbitrary estimate of hp size in kW(electricity)
+    new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 6 # arbitrary estimate of hp size in kW(electricity)
     return new_size
 
 def size_evs(Ldata, adopt):
@@ -84,23 +84,20 @@ def generate_heatpump_load_profile(temp):
 
 #@njit
 def generate_ev_load_profile(Esize):
-    # suppose charging 80% battery every night
     charge_rate = 7.2 # kW, level 2 charger
+    battery_frac = 0.5 # suppose charging 50% battery
+    charge_frequency = 0.3 # 30% of nights
     hasEV = Esize > 0
     n = hasEV.sum()
     start_time = np.random.randint(6, 9, size=n) # pm
-    duration = np.ceil(Esize * 0.8 / charge_rate).astype(np.int64)
-    #duration = np.zeros(Esize.shape, dtype=np.int64)
-    #for j in range(len(Esize)):
-    #    duration[j] = int(np.ceil(Esize[j] * 0.8 / charge_rate))
+    duration = np.ceil(Esize * batter_frac / charge_rate).astype(np.int64)
     profiles = np.zeros((len(Esize), 365, 24)) # start at 12pm, shift later
+    charging_days = np.random.random((n, 365)) < charge_frequency
     for i, j in enumerate(np.where(hasEV)[0]):
         t0 = start_time[i]
-        profiles[j, :, t0:t0+duration[j]] = charge_rate
+        profiles[j, charging_days[i], t0:t0+duration[j]] = charge_rate
     profiles = profiles.reshape(-1, 8760)
-    #for j in range(len(profiles)):
-    #    profiles[j] = np.roll(profiles[j], 12)
-    profiles = np.roll(profiles, 12, axis=1)
+    profiles = np.roll(profiles, 12, axis=1) # shift 12pm to 12am
     return profiles.T
 
 if __name__ == "__main__":
