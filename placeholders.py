@@ -90,7 +90,7 @@ def generate_ev_load_profile(Esize):
     hasEV = Esize > 0
     n = hasEV.sum()
     start_time = np.random.randint(6, 9, size=n) # pm
-    duration = np.ceil(Esize * batter_frac / charge_rate).astype(np.int64)
+    duration = np.ceil(Esize * battery_frac / charge_rate).astype(np.int64)
     profiles = np.zeros((len(Esize), 365, 24)) # start at 12pm, shift later
     charging_days = np.random.random((n, 365)) < charge_frequency
     for i, j in enumerate(np.where(hasEV)[0]):
