@@ -110,7 +110,6 @@ def run_instance(nyears=20, year0=2025):
     full_load_curve = np.concatenate(load_curves, axis=0)
     df = pd.DataFrame(data=full_load_curve, columns=m2t_map.columns)
     df.to_parquet(f"output/alburgh_tf_load_{year0}_{nyears}years_{seed}.parquet")
-    # TODO save to hdf instead of multiple parquet files
 
     #meterdf.to_parquet(f"output/alburgh_meterdf_{seed}.parquet")
     #m2t_map.to_parquet(f"output/alburgh_m2t.parquet")
