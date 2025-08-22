@@ -69,7 +69,6 @@ def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
             for res in concurrent.futures.as_completed(res_to_meters):
                 meters = res_to_meters[res]
                 tf_tmp, tf_cols, meterdf.loc[meters], sizes.loc[meters] = res.result()
-                #full_transformer_load.loc[tf_cols] += tf_tmp
                 full_transformer_load.values[tf_cols] += tf_tmp
             timer.print(f"seed {seed} collected results")
 
@@ -158,37 +157,51 @@ def generate_failure_curves(nyears=20, year0=2025, seeds=(1,)):
     #failure_curves = pd.DataFrame(index=np.arange(8760*nyears), columns=tf_device_sizes.index, data=0.)
     timer.print("data loaded")
     
-    nworkers = os.cpu_count() - 1
+    nworkers = 10#os.cpu_count() - 1
     tf_inds = np.array_split(np.arange(len(tf_device_sizes)).astype(int), nworkers)
     with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
-        for seed in seeds:
-            df = pd.read_parquet(f"output/alburgh_tf_load_{year0}_{nyears}years_{seed}.parquet")
-            res_to_tfs = {}
-            for i, tfs in enumerate(np.array_split(df.columns, nworkers)):
-                res = executor.submit(
-                    _failure_curve_worker,
-                    df[tfs], 
-                    weather,
-                    T0,
-                )
-                res_to_tfs[res] = tf_inds[i]
+        args = (year0, nyears, tf_inds, weather, T0, executor, nworkers)
+        res_to_tfs = _submit_batch_failure_curve(seeds[0], *args)
+        timer.print(f"seed {seeds[0]} submitted")
+        for seed in seeds[1:]:
+            res_to_tfs_new = _submit_batch_failure_curve(seed, *args)
             timer.print(f"seed {seed} submitted")
 
-            for res in concurrent.futures.as_completed(res_to_tfs):
-                tfs = res_to_tfs[res]
-                p_fail = res.result()
-                failure_curves.values[tfs] += p_fail
-            timer.print(f"seed {seed} failure curve")
+            _collect_batch(res_to_tfs, failure_curves)
+            res_to_tfs = res_to_tfs_new
+            timer.print(f"seed {seed-1} failure curve")
+        _collect_batch(res_to_tfs, failure_curves)
+        timer.print(f"seed {seed} failure curve")
         failure_curves = failure_curves.T
         failure_curves /= N
+        timer.print(f"failure curves collected")
 
     failure_curves.to_parquet(f"output/alburgh_tf_failure_curves_{year0}_{nyears}years.parquet")
     timer.print("data saved")
 
-def _failure_curve_worker(df, weather, T0):
-    hotspot = transformer_aging.temperature_equations(df.values, weather, T0=T0)
+def _collect_batch(res_to_tfs, failure_curves):
+    for res in concurrent.futures.as_completed(res_to_tfs):
+        tfs = res_to_tfs[res]
+        pfail = res.result()
+        failure_curves.values[tfs] += pfail
+
+def _submit_batch_failure_curve(seed, year0, nyears, tf_inds, weather, T0, executor, nworkers):
+    res_to_tfs = {}
+    df = pd.read_parquet(f"output/alburgh_tf_load_{year0}_{nyears}years_{seed}.parquet")
+    for i, tfi in enumerate(tf_inds):
+        tfs = df.columns[tfi]
+        res = executor.submit(
+            _failure_curve_worker, df[tfs].values, weather, T0
+        )
+        res_to_tfs[res] = tfi#tf_inds[i]
+    return res_to_tfs
+
+def _failure_curve_worker(loads, weather, T0):
+    #t0 = time.perf_counter()
+    hotspot = transformer_aging.temperature_equations(loads, weather, T0=T0)
     aging = transformer_aging.effective_aging(hotspot)
     p_fail = transformer_aging.failure_prob(aging, eta=112, beta=3.5)
+    #print("  worker time", round(time.perf_counter() - t0, 2))
     return p_fail.T
 
 def collect_tf_device_average(nyears=20, year0=2025, seeds=(1,)):
@@ -201,39 +214,10 @@ def collect_tf_device_average(nyears=20, year0=2025, seeds=(1,)):
     df.to_parquet(f"{basename}_avg.parquet")
 
 
-def compute_transformer_loads_parallel(nyears=0, year0=0, seeds=(1,)):
-    timer = Timer()
-    with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-        nworkers = executor._max_workers
-        print(f"Running on {nworkers} processes")
-        results = []
-        for subset in np.array_split(seeds, nworkers):
-            r = executor.submit(compute_transformer_loads, nyears=nyears, year0=year0, seeds=subset)
-            results.append(r)
-        for r in results:
-            r.result()
-    # Results saved to disk, no post-processing to be done
-    timer.print("Finished compute_transformer_loads")
-
-def generate_failure_curves_parallel(nyears=0, year0=0, seeds=(1,)):
-    timer = Timer()
-    with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-        nworkers = executor._max_workers
-        print(f"Running on {nworkers} processes")
-        results = []
-        for subset in np.array_split(seeds, nworkers):
-            r = executor.submit(generate_failure_curves, nyears=nyears, year0=year0, seeds=subset)
-            results.append(r)
-        for r in results:
-            r.result()
-    # Results saved to disk, no post-processing to be done
-    timer.print("Finished generate_failure_curves")
-
-
 if __name__ == "__main__":
     seeds = (np.arange(4) + 1).astype(int)
     nyears = 20
-    year0 = 4040
-    #compute_transformer_loads(nyears=nyears, year0=year0, seeds=seeds)
+    year0 = 2050
+    compute_transformer_loads(nyears=nyears, year0=year0, seeds=seeds)
     generate_failure_curves(nyears=nyears, year0=year0, seeds=seeds)
-    #collect_tf_device_average(nyears=nyears, year0=year0, seeds=seeds)
+    collect_tf_device_average(nyears=nyears, year0=year0, seeds=seeds)
