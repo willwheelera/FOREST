@@ -34,13 +34,7 @@ def interpolate(df):
     max_[17::24] = df["TMAX"].values[:365]
     max_s = np.convolve(max_, base[:24])[12:8772]
     avg_shift = smooth_avg_shift(df)[7:8767]
-    return min_s + max_s + avg_shift
-    #plt.plot(np.arange(5, 8760, 24), df["TMIN"][:365])
-    #plt.plot(np.arange(17, 8760, 24), df["TMAX"][:365])
-    #plt.plot(min_s + max_s)
-    #plt.plot(min_s + max_s + avg_shift)
-    #plt.plot(avg_shift)
-    #plt.show()
+    return min_s + max_s #+ avg_shift # Keep it simple to explain - don't shift the average
     
 def smooth_avg_shift(df):
     diff = df["TMAX"] - df["TMIN"]
@@ -94,4 +88,10 @@ def plot_smooth_avg_shift(shift=0.5):
 
 if __name__ == "__main__":
     df = load_data("../")
-    interpolate(df)
+    curve = interpolate(df)
+    plt.plot(np.arange(5, 8760, 24), df["TMIN"][:365])
+    plt.plot(np.arange(17, 8760, 24), df["TMAX"][:365])
+    plt.plot(np.arange(12, 8760, 24), df["TAVG"][:365])
+    plt.plot(curve)
+    plt.show()
+    #plot_smooth_avg_shift()
