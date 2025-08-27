@@ -74,6 +74,8 @@ def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
 
             load_outname = f"output/alburgh_tf_load_{year0}_{nyears}years_{seed}.parquet"
             full_transformer_load = full_transformer_load.T
+            # Don't exceed tf capacity in generation
+            full_transformer_load = np.maximum(full_transformer_load, -1.)
             full_transformer_load.to_parquet(load_outname)
             device_outname = f"output/alburgh_tf_devices_{year0}_{nyears}years_{seed}.parquet"
             save_tf_devices(device_outname, meterdf, m2t_map, sizes)
