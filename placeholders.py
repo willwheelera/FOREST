@@ -66,8 +66,8 @@ def size_evs(Ldata, adopt):
 def size_solar(Ldata, adopt):
     newcols = Ldata.columns[adopt]
     new_size = adopt.astype(float)
-    tmp = Ldata[newcols].sum(axis=0) / 365 / 3 # arbitrary estimate of solar size in kW_peak
-    new_size[adopt] = np.clip(tmp, a_max=25., a_min=0.)
+    tmp = Ldata[newcols].mean(axis=0) * 4 # arbitrary estimate of solar size in kW_peak, multiple of avg hourly consumption
+    new_size[adopt] = np.clip(tmp, a_max=15., a_min=0.) # set max to 15 to stay within most transformer ranges
     return new_size
 
 def generate_background_profile(Ldata):
@@ -79,7 +79,7 @@ def generate_heatpump_load_profile(temp):
     # assume duty cycle averages out within the hour
     # assume no size-dependence - just one profile
     Tset = 22
-    power_frac = np.abs(temp - Tset) / 40
+    power_frac = np.abs(temp - Tset) / 25
     return np.clip(power_frac, 0, 1)
 
 #@njit
