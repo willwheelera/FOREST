@@ -4,18 +4,19 @@ import scipy.sparse
 import time
 import json
 import pickle
+import concurrent.futures
+import multiprocessing as mp
+import os
+
 import weather_data.load_data
 import placeholders
+import ev_charging_model
 import sun_model
 import loads_to_transformers
 import transformer_aging
 import device_data
 import read_in_data
 from timer import Timer
-import concurrent.futures
-import multiprocessing as mp
-import os
-from numba import njit
 
 # General outline
 
@@ -102,7 +103,6 @@ def _load_transformer_data(mapfile, columns):
     tf_ratings = tf_ratings.loc[m2t_map.columns]
     return m2t_map, tf_ratings["ratedKVA"].values
 
-#@njit
 def save_tf_devices(fname, meterdf, m2t_map, sizes):
     tmp = m2t_map.T @ meterdf.loc[m2t_map.index][["cchp", "home charger", "solar"]]
     tf_device_sizes = m2t_map.T @ sizes
@@ -135,7 +135,7 @@ def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=
         Ssize += -placeholders.size_solar(Ldata, adoptS).values
 
         LH = placeholders.generate_heatpump_load_profile(weather)[:, np.newaxis] # just one profile
-        LE = placeholders.generate_ev_load_profile(Esize)
+        LE = ev_charging_model.generate_ev_load_profile(Esize)
         LS = sun_model.generate()[:, np.newaxis] # just one profile
         L0 = Ldata#placeholders.generate_background_profile(Ldata)
         L[:] = Hsize*LH + LE + Ssize*LS + L0.values

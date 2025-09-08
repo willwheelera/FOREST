@@ -7,7 +7,7 @@ pd.set_option('future.no_silent_downcasting', True)
 
 
 def get_meter_data(prefix="VEC"):
-    datapath = "/home/wwheele1/FOREST/data/"
+    datapath = "data/"
     device_df = pd.read_excel(datapath+"All T3 through 2024.xlsx")
     clean_data(device_df)
     keys = ["cchp", "aev", "home charger", "hpwh", "centrally ducted", "mower", "phev", "battery"]
@@ -96,7 +96,7 @@ def select_data(df, **kwargs):
 
 
 def save_subset(substation=28):
-    datapath = "/home/wwheele1/FOREST/data/"
+    datapath = "data/"
     df = pd.read_parquet(datapath+"VEC_meter_number_data.parquet")
     df = df[df["Substation"] == str(substation)]
     df.to_parquet(datapath+f"sub{substation}_meter_number_data.parquet")
@@ -105,6 +105,6 @@ def save_subset(substation=28):
     df.to_parquet(datapath+f"sub{substation}_gen_meter_number_data.parquet")
 
 if __name__ == "__main__":
-    #save_subset()
+    save_subset()
     df, keys = get_meter_data("sub28")
     print(df)
