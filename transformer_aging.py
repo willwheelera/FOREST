@@ -6,6 +6,7 @@ import weather_data.load_data
 import os
 import time
 import numba
+import scipy.special
 
 def run():
     path = "data/Alburgh/"
@@ -172,17 +173,23 @@ def effective_aging(T):
 def failure_prob(age, eta=112, beta=3.5):
     return 1 - np.exp(-(age/eta)**beta)
 
+def lognormal_failure(age, mu=4.6, sigma=1.0):
+    return 0.5 + 0.5 * scipy.special.erf((np.log(age+1e-3) - mu) / sigma)
+
 def plot_failure_curve():
     t = np.linspace(0, 200, 100)
     f = failure_prob(t)
+    g = lognormal_failure(t)
     plt.figure(figsize=(3,3))
     plt.plot(t, f)
+    plt.plot(t, g)
     plt.xlabel("age (years)")
     plt.ylabel("failure probability")
-    plt.savefig("figures/failure_probability_curve.pdf", bbox_inches="tight")
+    #plt.savefig("figures/failure_probability_curve.pdf", bbox_inches="tight")
     plt.show()
 
 if __name__ == "__main__":
-    run()
+    #run()
+    plot_failure_curve()
 
 
