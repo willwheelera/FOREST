@@ -15,7 +15,7 @@ def visualize_network(psm=None, nodes=(), xfmrs=()):
     #for tfname in ['E72805103080326', 'E72805103097973', 'E72805203078706', 'E72805203078859', 'E72805203079531', ]:
     for tfname in xfmrs:
         tf = psm.Branch_Dict[tfname]
-        plt.scatter(tf.X_coord, tf.Y_coord, c="greenyellow", s=8)
+        plt.scatter(tf.X_coord, tf.Y_coord, c="red", edgecolor="k", s=12)
     
 
 def visualize_pf_result(psm, node_df, branch_df, fileprefix=""):

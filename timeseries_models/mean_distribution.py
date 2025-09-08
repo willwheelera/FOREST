@@ -11,13 +11,17 @@ import clean_data
 
 def run():
     # === Load your data ===
-    #fname = "../data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
-    #timeseries_df = pd.read_parquet(fname)[:-1]  # index: 'timestamp', columns: 'asset_id', data: 'value'
+    fname = "../data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
+    df = pd.read_parquet(fname)[:8760]  # index: 'timestamp', columns: 'asset_id', data: 'value'
+    print("df", df.shape)
     #timeseries_df[timeseries_df.columns[:1000]].to_parquet("test_sample1000.parquet")
-    df = pd.read_parquet("test_sample100.parquet")
-    meterdf = None if len(df) == 100 else get_meter_data()[0]
+    #df = pd.read_parquet("test_sample100.parquet")
+    meterdf = None if len(df) == 100 else get_meter_data("sub28")[0]
+    print("meterdf", len(meterdf))
     df = clean_data.clean_all(df, meterdf)
+    print("df", df.shape)
     df = clean_data.remove_all_devices(df, meterdf)
+    print("df", df.shape)
     data = df.values
 
     #data = data / np.abs(np.amax(data, axis=-1, keepdims=True))
@@ -41,6 +45,7 @@ def plot_max(v):
 def plot_mean(v):
     mean = v.sum(axis=0) / 1000 # total over year in MWh
     n = len(mean)
+    print("len mean", n)
     hist, bins = np.histogram(mean, bins=n//5)
     hist = hist / n # fraction of the total
     ch = np.cumsum(hist)
@@ -51,13 +56,15 @@ def plot_mean(v):
     smoothm = smooth(m, 3)
     plt.plot(m, np.linspace(0, 1, n))
     plt.plot(smoothm, np.linspace(0, 1, n))
+    plt.ylabel("fraction of meters")
+    plt.xlabel("total load over 2024 (MWh)")
 
     plt.figure()
     x = (bins[1:] + bins[:-1])/2
     plt.bar(x, hist)
     plt.plot(x, smooth(hist))
     plt.title("distribution across meters")
-    plt.xlabel("total load over 2024")
+    plt.xlabel("total load over 2024 (MWh)")
     plt.ylabel("fraction of meters")
     plt.savefig("total_distribution.pdf", bbox_inches="tight")
     plt.show()

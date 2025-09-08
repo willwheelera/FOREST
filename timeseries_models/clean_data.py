@@ -32,6 +32,6 @@ def remove_all_devices(df, meterdf=None):
     keys = ["cchp", "hpwh", "solar", "home charger"]
     nodevices = meterdf[keys].sum(axis=1) == 0
     meternums = meterdf[nodevices]["Meter Number"]
-    select = df.columns[df.columns.astype(str).isin(meternums)]
+    select = df.columns[df.columns.isin(meternums)]
     return df[select]
     
