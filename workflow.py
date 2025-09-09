@@ -4,9 +4,11 @@ import scipy.sparse
 import time
 import json
 import pickle
+
 import weather_data.load_data
 import placeholders
 import sun_model
+import ev_charging_model
 import loads_to_transformers
 import transformer_aging
 import device_data
@@ -41,7 +43,9 @@ def run_instance(nyears=20, year0=2025):
     meterdf = meterdf.loc[Ldata.columns]
 
     solardf = meterdf # todo.get_solar_data()
-    Hsize, Esize, Ssize = np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1]), np.zeros(Ldata.shape[1])
+    nmeters = Ldata.shape[1]
+    Hsize, Ssize = np.zeros(nmeters), np.zeros(nmeters)
+    Eparams = np.zeros((4, 0))
 
     age_curves = []
     load_curves = []
@@ -72,18 +76,20 @@ def run_instance(nyears=20, year0=2025):
         adoptE = placeholders.adopt_evs(Ldata, meterdf, E_g)
         adoptS = placeholders.adopt_solar(Ldata, solardf, S_g)
         Hsize += placeholders.size_heatpumps(Ldata, adoptH).values
-        Esize += placeholders.size_evs(Ldata, adoptE).values
         Ssize += -placeholders.size_solar(Ldata, adoptS).values
+        tmptimer.reset()
+        newparams = ev_charging_model.generate_parameters(np.where(adoptE)[0])
+        Eparams = np.concatenate([Eparams, newparams], axis=1)
 
         weather = weather_data.load_data.generate()
 
         LH = placeholders.generate_heatpump_load_profile(weather)[:, np.newaxis] # just one profile
-        LE = placeholders.generate_ev_load_profile(Esize)
+        LE = ev_charging_model.generate_ev_load_profile(Eparams, len(adoptE))
         LS = sun_model.generate()[:, np.newaxis] # just one profile
         L0 = placeholders.generate_background_profile(Ldata)
         L = Hsize*LH + LE + Ssize*LS + L0
         pfactor = 1 - 0.1 * (~meterdf["solar"]).astype(float) # assume PF is 1 with inverter
-        L = L / pfactor # power factor
+        L = L / pfactor.values # power factor
         timer.print(f"meter loads calculated")#, time.perf_counter() - t0)
 
         # Transformer loads
