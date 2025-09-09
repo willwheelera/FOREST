@@ -115,7 +115,8 @@ def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=
     nmeters = Ldata.shape[1]
     weather = weather_data.load_data.generate()
     full_meter_load = np.zeros((nyears*8760, nmeters))
-    Hsize, Esize, Ssize = np.zeros(nmeters), np.zeros(nmeters), np.zeros(nmeters)
+    Hsize, Ssize = np.zeros(nmeters), np.zeros(nmeters)
+    Eparams = np.zeros((4, 0))
     tf_nonzero = m2t_frac.sum(axis=0) > 0
     tf_cols = m2t_frac.columns[tf_nonzero]
     m2t_frac = m2t_frac[tf_cols].values
@@ -131,11 +132,12 @@ def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=
         adoptS = placeholders.adopt_solar(Ldata, meterdf, S_g)
         # size is an (nmeters,) array, includes all devices added so far
         Hsize += placeholders.size_heatpumps(Ldata, adoptH).values
-        Esize += placeholders.size_evs(Ldata, adoptE).values
         Ssize += -placeholders.size_solar(Ldata, adoptS).values
+        newparams = ev_charging_model.generate_parameters(np.where(adoptE)[0])
+        Eparams = np.concatenate([Eparams, newparams], axis=1)
 
         LH = placeholders.generate_heatpump_load_profile(weather)[:, np.newaxis] # just one profile
-        LE = ev_charging_model.generate_ev_load_profile(Esize)
+        LE = ev_charging_model.generate_ev_load_profile(Eparams, len(adoptE))
         LS = sun_model.generate()[:, np.newaxis] # just one profile
         L0 = Ldata#placeholders.generate_background_profile(Ldata)
         L[:] = Hsize*LH + LE + Ssize*LS + L0.values
