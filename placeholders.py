@@ -1,6 +1,7 @@
 import numpy as np
 from numba import njit
 
+GROWTH = "HIGH"
 
 def estimate_logistic_rate(year, f_now, y50, ynow=2024):
     # f = 1 / (1 + e^[(y-y50)/a])
@@ -17,20 +18,20 @@ def estimate_logistic_rate(year, f_now, y50, ynow=2024):
 def growth_rate_heatpumps(year):
     # Alburgh
     f_now = 0.11 # estimated penetration from current data
-    y50 = 2050 # estimate year of 50% hp penetration
-    return estimate_logistic_rate(year, f_now, y50)
+    y50 = dict(LOW=2060, MED=2050, HIGH=2035) # estimate year of 50% hp penetration
+    return estimate_logistic_rate(year, f_now, y50[GROWTH])
 
 def growth_rate_evs(year):
     # Alburgh
     f_now = 0.005 # estimated penetration from current data
-    y50 = 2060 # estimate year of 50% ev penetration
-    return estimate_logistic_rate(year, f_now, y50)
+    y50 = dict(LOW=2070, MED=2060, HIGH=2035) # estimate year of 50% ev penetration
+    return estimate_logistic_rate(year, f_now, y50[GROWTH])
 
 def growth_rate_solar(year):
     # Alburgh
     f_now = 0.02 # estimated penetration from current data
-    y50 = 2060 # estimate year of 50% solar penetration
-    return estimate_logistic_rate(year, f_now, y50)
+    y50 = dict(LOW=2070, MED=2060, HIGH=2040) # estimate year of 50% pv penetration
+    return estimate_logistic_rate(year, f_now, y50[GROWTH])
 
 def _adopt(can_adopt, key, meterdf, growth):
     can_adopt = can_adopt & ~meterdf[key] # doesn't already have
@@ -54,7 +55,9 @@ def adopt_solar(Ldata, solardf, S_g):
 def size_heatpumps(Ldata, adopt):
     newcols = Ldata.columns[adopt]
     new_size = adopt.astype(float)
-    new_size[adopt] = Ldata[newcols].sum(axis=0) / 365 / 6 # arbitrary estimate of hp size in kW(electricity)
+    # this distribution fit to VEC data on HP sizes; no correlation with load size is apparent
+    btu = np.random.weibull(1.73, size=adopt.sum()) * 23700 + 7000
+    new_size[adopt] = btu * 1e-3 * 0.3 # kW peak
     return new_size
 
 def size_evs(Ldata, adopt):
@@ -75,7 +78,7 @@ def generate_background_profile(Ldata):
 
 #@njit
 def generate_heatpump_load_profile(temp):
-    # assume linear efficiency centered at 22C, up to 40C difference
+    # assume linear efficiency centered at 22C, up to 25C difference
     # assume duty cycle averages out within the hour
     # assume no size-dependence - just one profile
     Tset = 22
