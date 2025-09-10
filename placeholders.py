@@ -53,7 +53,6 @@ def adopt_solar(Ldata, solardf, S_g):
     return _adopt(can_adopt, "solar", solardf, S_g)
 
 def size_heatpumps(Ldata, adopt):
-    newcols = Ldata.columns[adopt]
     new_size = adopt.astype(float)
     # this distribution fit to VEC data on HP sizes; no correlation with load size is apparent
     btu = np.random.weibull(1.73, size=adopt.sum()) * 23700 + 7000
