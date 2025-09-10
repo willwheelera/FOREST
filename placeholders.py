@@ -56,7 +56,7 @@ def size_heatpumps(Ldata, adopt):
     new_size = adopt.astype(float)
     # this distribution fit to VEC data on HP sizes; no correlation with load size is apparent
     btu = np.random.weibull(1.73, size=adopt.sum()) * 23700 + 7000
-    new_size[adopt] = btu * 1e-3 * 0.3 # kW peak
+    new_size[adopt] = btu * 2.93e-4 * 0.3 # kW peak, COP factor
     return new_size
 
 def size_evs(Ldata, adopt):
