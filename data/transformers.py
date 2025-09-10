@@ -23,6 +23,7 @@ maxs = df[phases].max(axis=1)
 below = maxs > df["gs_rated_kva"]
 print(df[keys][below])
 
-newdf = df[["gs_equipment_location", "gs_rated_kva", "x", "y"]]
+newdf = df[["gs_equipment_location", "gs_facility_id", "gs_rated_kva", "x", "y"]]
 newdf.to_csv("Alburgh/2025_transformer_ratings.csv")
 
+print(newdf)
