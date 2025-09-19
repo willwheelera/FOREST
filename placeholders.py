@@ -1,8 +1,6 @@
 import numpy as np
 from numba import njit
 
-GROWTH = "HIGH"
-
 def estimate_logistic_rate(year, f_now, y50, ynow=2024):
     # f = 1 / (1 + e^[(y-y50)/a])
     # a is timescale
@@ -15,27 +13,30 @@ def estimate_logistic_rate(year, f_now, y50, ynow=2024):
     a = (ynow - y50) / x
     return 1 / (4*a*np.cosh((year-y50)/(2*a))**2)
 
-def growth_rate_heatpumps(year):
+def growth_rate_heatpumps(year, GROWTH):
     # Alburgh
     f_now = 0.11 # estimated penetration from current data
     y50 = dict(LOW=2060, MED=2050, HIGH=2035) # estimate year of 50% hp penetration
     return estimate_logistic_rate(year, f_now, y50[GROWTH])
 
-def growth_rate_evs(year):
+def growth_rate_evs(year, GROWTH):
     # Alburgh
     f_now = 0.005 # estimated penetration from current data
     y50 = dict(LOW=2070, MED=2060, HIGH=2035) # estimate year of 50% ev penetration
     return estimate_logistic_rate(year, f_now, y50[GROWTH])
 
-def growth_rate_solar(year):
+def growth_rate_solar(year, GROWTH):
     # Alburgh
-    f_now = 0.02 # estimated penetration from current data
-    y50 = dict(LOW=2070, MED=2060, HIGH=2040) # estimate year of 50% pv penetration
-    return estimate_logistic_rate(year, f_now, y50[GROWTH])
+    #f_now = 0.02 # estimated penetration from current data
+    #y50 = dict(LOW=2070, MED=2060, HIGH=2040) # estimate year of 50% pv penetration
+    return 0. # NO SOLAR # estimate_logistic_rate(year, f_now, y50[GROWTH])
 
 def _adopt(can_adopt, key, meterdf, growth):
     can_adopt = can_adopt & ~meterdf[key] # doesn't already have
-    add_random = np.random.random(can_adopt.sum()) < growth
+    if can_adopt.sum() == 0:
+        return can_adopt
+    scale_rate = len(can_adopt) / can_adopt.sum() # make sure we preserve growth rate after filtering
+    add_random = np.random.random(can_adopt.sum()) < growth * scale_rate
     can_adopt[can_adopt] = add_random
     meterdf.loc[:, key] = meterdf[key] | can_adopt
     return can_adopt
