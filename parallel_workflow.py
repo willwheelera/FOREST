@@ -14,7 +14,6 @@ import ev_charging_model
 import sun_model
 import loads_to_transformers
 import transformer_aging
-import device_data
 import read_in_data
 from timer import Timer
 
@@ -27,14 +26,14 @@ def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
     timer.print("Starting")
     # Read in load data -- may want to use raw data instead
     fname = "data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
-    Ldata, meterdf = _load_meter_data(fname)
+    Ldata, meterdf = read_in_data.load_meter_data(fname)
     mapfile = "data/Alburgh/transformer_map.pkl" # map meters to transformers
-    m2t_map, TF_RATINGS = _load_transformer_data(mapfile, Ldata.columns)
+    m2t_map, TF_RATINGS = read_in_data.load_transformer_data(mapfile, Ldata.columns)
     m2t_frac = (m2t_map / TF_RATINGS)
     
     timer.print("data loaded")#, time.perf_counter() - t0)
     timer.reset()
-    nworkers = os.cpu_count() - 1
+    nworkers = 8#os.cpu_count() - 1
     print(f"nworkers  {nworkers}")
 
     def submit_seed(seed):
@@ -49,29 +48,13 @@ def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
                 year0, 
                 seed=seed,
             )
-        res_to_meters[res] = meters
+            res_to_meters[res] = meters
         return (res_to_meters, seed)
 
     _seeds = [x for x in seeds]
     with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
         # Submit tasks for all seeds at once
         seed_results = []
-        #for seed in seeds:
-        #    res_to_meters = {}
-        #    for meters in np.array_split(Ldata.columns, nworkers):
-        #        res = executor.submit(
-        #            _calculate_meter_loads_subset,
-        #            Ldata[meters], 
-        #            meterdf.loc[meters], 
-        #            m2t_frac.loc[meters],
-        #            nyears, 
-        #            year0, 
-        #            seed=seed,
-        #        )
-        #        res_to_meters[res] = meters
-        #    seed_results.append((res_to_meters, seed))
-        #    timer.print(f"submitted {seed}")
-
         seed_results.append(submit_seed(_seeds.pop(0)))
         for _i in range(len(seeds)):
             if len(_seeds) > 0:
@@ -92,6 +75,7 @@ def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
                 index=m2t_map.index,
             )
             timer.print(f"seed {seed} init outputs")
+
             for res in concurrent.futures.as_completed(res_to_meters):
                 meters = res_to_meters[res]
                 tf_tmp, tf_cols, meterdf.loc[meters], sizes.loc[meters] = res.result()
@@ -109,25 +93,6 @@ def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
 
     fulltimer.print("Complete")
 
-def _load_meter_data(fname):
-    Ldata = pd.read_parquet(fname)
-    meterdf, keys = device_data.get_meter_data("sub28")
-    #meterdf = meterdf[meterdf["Substation"] == 28]
-    meterdf.set_index("Meter Number", inplace=True)
-    Ldata = Ldata[Ldata.columns[Ldata.columns.isin(meterdf.index)]]
-    Ldata = Ldata[:8760].astype(float)
-    meterdf = meterdf.loc[Ldata.columns]
-    return Ldata, meterdf
-
-def _load_transformer_data(mapfile, columns):
-    with open(mapfile, "rb") as f:
-        load_map = pickle.load(f)["load_map"]
-    #load_map = [l for l in load_map if l[0] in Ldata.columns]
-    m2t_map = loads_to_transformers.meter_to_transformer_matrix(load_map, columns)
-    tf_ratings = read_in_data.read_transformer_ratings("Alburgh")
-    tf_ratings = tf_ratings.loc[m2t_map.columns]
-    return m2t_map, tf_ratings["ratedKVA"].values
-
 def save_tf_devices(fname, meterdf, m2t_map, sizes):
     tmp = m2t_map.T @ meterdf.loc[m2t_map.index][["cchp", "home charger", "solar"]]
     tf_device_sizes = m2t_map.T @ sizes
@@ -137,9 +102,11 @@ def save_tf_devices(fname, meterdf, m2t_map, sizes):
     tf_device_sizes.to_parquet(fname)
 
 def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=1):
+    np.random.seed(seed)
+    meterdf = meterdf.copy()
     nmeters = Ldata.shape[1]
     weather = weather_data.load_data.generate()
-    full_meter_load = np.zeros((nyears*8760, nmeters))
+    full_meter_load = np.zeros((nyears, 8760, nmeters))
     Hsize, Ssize = np.zeros(nmeters), np.zeros(nmeters)
     Eparams = np.zeros((4, 0))
     tf_nonzero = m2t_frac.sum(axis=0) > 0
@@ -147,9 +114,9 @@ def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=
     m2t_frac = m2t_frac[tf_cols].values
     L = np.zeros((8760, nmeters))
     for year in np.arange(nyears).astype(int) + year0:
-        H_g = placeholders.growth_rate_heatpumps(year)
-        E_g = placeholders.growth_rate_evs(year)
-        S_g = placeholders.growth_rate_solar(year)
+        H_g = placeholders.growth_rate_heatpumps(year, GROWTH)
+        E_g = placeholders.growth_rate_evs(year, GROWTH)
+        S_g = placeholders.growth_rate_solar(year, GROWTH)
 
         # adopt is an (nmeters,) boolean array for *new* devices to add
         adoptH = placeholders.adopt_heatpumps(Ldata, meterdf, H_g)
@@ -165,12 +132,11 @@ def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=
         LE = ev_charging_model.generate_ev_load_profile(Eparams, len(adoptE))
         LS = sun_model.generate()[:, np.newaxis] # just one profile
         L0 = Ldata#placeholders.generate_background_profile(Ldata)
-        L[:] = Hsize*LH + LE + Ssize*LS + L0.values
+        L = Hsize*LH + LE + Ssize*LS + L0.values
         pfactor = 1 - 0.1 * (~meterdf["solar"]).values.astype(float) # assume PF is 1 with inverter
-        start = (year - year0) * 8760
-        full_meter_load[start:start+8760] = L / pfactor # power factor
-    full_tf_load = full_meter_load @ m2t_frac
-    #return full_tf_load.T, tf_cols, meterdf, np.stack([Hsize, Esize, Ssize], axis=1)
+        full_meter_load[year-year0] = L / pfactor # power factor
+
+    full_tf_load = (full_meter_load @ m2t_frac).reshape(-1, m2t_frac.shape[1])
     Esize = np.zeros(len(Hsize))
     Esize[Eparams[0].astype(int)] = Eparams[1]
     return full_tf_load.T, tf_nonzero, meterdf, np.stack([Hsize, Esize, Ssize], axis=1)
@@ -191,18 +157,21 @@ def generate_failure_curves(nyears=20, year0=2025, seeds=(1,)):
     nworkers = 10#os.cpu_count() - 1
     tf_inds = np.array_split(np.arange(len(tf_device_sizes)).astype(int), nworkers)
     with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
-        args = (year0, nyears, tf_inds, weather, T0, executor, nworkers)
-        res_to_tfs = _submit_batch_failure_curve(seeds[0], *args)
+        args = (tf_inds, weather, T0, executor, nworkers)
+        tag0 = f"{GROWTH}_{year0}_{nyears}years_{seeds[0]}"
+        res_to_tfs = _submit_batch_failure_curve(tag0, *args)
         timer.print(f"seed {seeds[0]} submitted")
         for seed in seeds[1:]:
-            res_to_tfs_new = _submit_batch_failure_curve(seed, *args)
+            tag1 = f"{GROWTH}_{year0}_{nyears}years_{seed}"
+            res_to_tfs_new = _submit_batch_failure_curve(tag1, *args)
             timer.print(f"seed {seed} submitted")
 
-            _collect_batch(res_to_tfs, failure_curves)
+            _collect_batch(res_to_tfs, failure_curves, tag0)
+            tag0 = tag1
             res_to_tfs = res_to_tfs_new
             timer.print(f"seed {seed-1} failure curve")
-        _collect_batch(res_to_tfs, failure_curves)
-        timer.print(f"seed {seed} failure curve")
+        _collect_batch(res_to_tfs, failure_curves, tag0)
+        timer.print(f"seed {seeds[-1]} failure curve")
         failure_curves = failure_curves.T
         failure_curves /= N
         timer.print(f"failure curves collected")
@@ -210,15 +179,19 @@ def generate_failure_curves(nyears=20, year0=2025, seeds=(1,)):
     failure_curves.to_parquet(f"output/alburgh_tf_failure_curves_{GROWTH}_{year0}_{nyears}years.parquet")
     timer.print("data saved")
 
-def _collect_batch(res_to_tfs, failure_curves):
+def _collect_batch(res_to_tfs, failure_curves, tag):
+    agingdf = pd.DataFrame(columns=failure_curves.columns, index=failure_curves.index, data=0.)
     for res in concurrent.futures.as_completed(res_to_tfs):
         tfs = res_to_tfs[res]
-        pfail = res.result()
+        pfail, aging = res.result()
         failure_curves.values[tfs] += pfail
+        agingdf.values[tfs] = aging
+    outname = f"output/alburgh_tf_aging_{tag}.parquet"
+    agingdf.T.to_parquet(outname)
 
-def _submit_batch_failure_curve(seed, year0, nyears, tf_inds, weather, T0, executor, nworkers):
+def _submit_batch_failure_curve(tag, tf_inds, weather, T0, executor, nworkers):
     res_to_tfs = {}
-    df = pd.read_parquet(f"output/alburgh_tf_load_{GROWTH}_{year0}_{nyears}years_{seed}.parquet")
+    df = pd.read_parquet(f"output/alburgh_tf_load_{tag}.parquet")
     for i, tfi in enumerate(tf_inds):
         tfs = df.columns[tfi]
         res = executor.submit(
@@ -233,14 +206,19 @@ def _failure_curve_worker(loads, weather, T0):
     aging = transformer_aging.effective_aging(hotspot)
     p_fail = transformer_aging.failure_prob(aging, eta=112, beta=3.5)
     #print("  worker time", round(time.perf_counter() - t0, 2))
-    return p_fail.T
+    return p_fail.T, aging.T
 
 def collect_tf_device_average(nyears=20, year0=2025, seeds=(1,)):
     N = len(seeds)
     basename = f"output/alburgh_tf_devices_{GROWTH}_{year0}_{nyears}years"
-    df = pd.read_parquet(f"{basename}_1.parquet")
+    df = pd.read_parquet(f"{basename}_{seeds[0]}.parquet")
+    print(df[100:115])
     for seed in seeds[1:]:
-        df += pd.read_parquet(f"{basename}_{seed}.parquet")
+        tmp = pd.read_parquet(f"{basename}_{seed}.parquet")
+        df += tmp
+        if seed<10:
+            print(tmp[100:115])
+    quit()
     df /= N
     df.to_parquet(f"{basename}_avg.parquet")
     print("device averages collected")
@@ -249,7 +227,7 @@ def collect_tf_device_average(nyears=20, year0=2025, seeds=(1,)):
 if __name__ == "__main__":
     seeds = (np.arange(5) + 1).astype(int)
     nyears = 20
-    year0 = 3000
+    year0 = 2025
     compute_transformer_loads(nyears=nyears, year0=year0, seeds=seeds)
     generate_failure_curves(nyears=nyears, year0=year0, seeds=seeds)
     collect_tf_device_average(nyears=nyears, year0=year0, seeds=seeds)
