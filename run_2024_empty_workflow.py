@@ -7,9 +7,7 @@ import pickle
 import weather_data.load_data
 import placeholders
 import sun_model
-import loads_to_transformers
 import transformer_aging
-import device_data
 import read_in_data
 from timer import Timer
 
@@ -30,29 +28,16 @@ def run_2024():
     #mapfile = "data/Alburgh/transformer_load_map.json" # map meters to transformers
     mapfile = "data/Alburgh/transformer_map.pkl" # map meters to transformers
 
-    Ldata = pd.read_parquet(fname)
-    meterdf, keys = device_data.get_meter_data("sub28")
-    #meterdf = meterdf[meterdf["Substation"] == 28]
-    meterdf.set_index("Meter Number", inplace=True)
-    Ldata = Ldata[Ldata.columns[Ldata.columns.isin(meterdf.index)]]
-    Ldata = Ldata[:8760].astype(float)
-    meterdf = meterdf.loc[Ldata.columns]
+    Ldata, meterdf = read_in_data.load_meter_data(fname)
+    m2t_map, TF_RATINGS = read_in_data.load_transformer_data(mapfile, Ldata.columns)
+    m2t_frac = (m2t_map / TF_RATINGS)
 
     age_curves = []
     load_curves = []
-    if mapfile.endswith("json"):
-        with open(mapfile, "r") as f:
-            load_map = json.load(f)
-        age_offset = np.zeros(len(load_map.keys()))
-    else:
-        with open(mapfile, "rb") as f:
-            load_map = pickle.load(f)["load_map"]
-        #load_map = [l for l in load_map if l[0] in Ldata.columns]
-        m2t_map = loads_to_transformers.meter_to_transformer_matrix(load_map, Ldata.columns)
-        age_offset = np.zeros(m2t_map.shape[1])
-    tf_ratings = read_in_data.read_transformer_ratings("Alburgh")
-    tf_ratings = tf_ratings.loc[m2t_map.columns]
-    TF_RATINGS = tf_ratings["ratedKVA"].values
+    age_offset = np.zeros(m2t_map.shape[1])
+    #tf_ratings = read_in_data.read_transformer_ratings("Alburgh")
+    #tf_ratings = tf_ratings.loc[m2t_map.columns]
+    #TF_RATINGS = tf_ratings["ratedKVA"].values
 
     timer.print("data loaded")#, time.perf_counter() - t0)
     T0 = 110
@@ -67,8 +52,8 @@ def run_2024():
     # Transformer loads
     #L_tr = loads_to_transformers.meters_to_transformers_tuples(load_map, L).values
     #L_tr = m2t_mapper.meters_to_transformers(L)
-    L_tr = L.values @ m2t_map.values
-    L_tr = (L_tr / TF_RATINGS)
+    L_tr = L.values @ m2t_frac.values
+    #L_tr = (L_tr / TF_RATINGS)
     load_curves.append(L_tr)
     timer.print(f"transformer loads calculated")#, time.perf_counter() - t0)
 
