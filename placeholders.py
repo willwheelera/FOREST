@@ -109,3 +109,22 @@ if __name__ == "__main__":
         rate = estimate_logistic_rate(year, f_now, y50, ynow=2024)
         print(str(f_now).ljust(6), y50, end=": ")
         print(np.around(rate*100, 2))
+
+    # max adopt?
+    import read_in_data
+    fname = "data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
+    Ldata, meterdf = read_in_data.load_meter_data(fname)
+    print(meterdf)
+    mapfile = "data/Alburgh/transformer_map.pkl" # map meters to transformers
+    m2t_map, TF_RATINGS = read_in_data.load_transformer_data(mapfile, Ldata.columns)
+    
+    meterdf = meterdf[meterdf.index.isin(m2t_map.index)]
+    print("common meters", meterdf.index.isin(m2t_map.index).sum() / len(meterdf))
+    print("pre H",  meterdf["cchp"].sum())
+    print("pre E",  meterdf["home charger"].sum())
+    maxH = adopt_heatpumps(Ldata, meterdf, 1)
+    maxE = adopt_evs(Ldata, meterdf, 1)
+    print("max H",  meterdf["cchp"].sum())
+    print("max E",  meterdf["home charger"].sum())
+    print("max H",  meterdf["cchp"].dot(m2t_map["tran_87721"]))
+    print("max E",  meterdf["home charger"].dot(m2t_map["tran_87721"]))
