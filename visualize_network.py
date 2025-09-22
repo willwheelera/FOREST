@@ -7,15 +7,19 @@ def visualize_network(psm=None, nodes=(), xfmrs=()):
         psm = read_psm()
     node_xy = list(zip(*[(n.X_coord, n.Y_coord) for n in psm.Loads]))
     fig = plt.figure(figsize=(6, 6))
-    h = plt.scatter(*node_xy, s=0.4) # plot all loads for context
+    h = plt.scatter(*node_xy, s=5) # plot all loads for context
     for _node in nodes:
         n = psm.Node_Dict[_node]
-        plt.scatter(n.X_coord, n.Y_coord, c="g", s=0.6)
+        plt.scatter(n.X_coord, n.Y_coord, c="g", s=5)
 
     #for tfname in ['E72805103080326', 'E72805103097973', 'E72805203078706', 'E72805203078859', 'E72805203079531', ]:
-    for tfname in xfmrs:
-        tf = psm.Branch_Dict[tfname]
-        plt.scatter(tf.X_coord, tf.Y_coord, c="red", edgecolor="k", s=12)
+    tfs = [psm.Branch_Dict[tfname] for tfname in xfmrs]
+    X, Y = list(zip(*[(tf.X_coord, tf.Y_coord) for tf in tfs]))
+    color = np.linspace(0, 1, len(tfs))
+    plt.scatter(X, Y, c=color, cmap="Wistia", edgecolor="k", s=30, lw=0.5)
+    #for tfname in xfmrs:
+    #    tf = psm.Branch_Dict[tfname]
+    #    plt.scatter(tf.X_coord, tf.Y_coord, c="magenta", edgecolor="k", s=12)
     
 
 def visualize_pf_result(psm, node_df, branch_df, fileprefix=""):
