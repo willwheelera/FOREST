@@ -18,9 +18,8 @@ import read_in_data
 from timer import Timer
 
 # General outline
-GROWTH = "HIGH"
 
-def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
+def compute_transformer_loads(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,)):
     fulltimer = Timer()
     timer = Timer(30, mute=False)
     timer.print("Starting")
@@ -46,6 +45,7 @@ def compute_transformer_loads(nyears=20, year0=2025, seeds=(1,)):
                 m2t_frac.loc[meters],
                 nyears, 
                 year0, 
+                GROWTH,
                 seed=seed,
             )
             res_to_meters[res] = meters
@@ -101,7 +101,7 @@ def save_tf_devices(fname, meterdf, m2t_map, sizes):
     tf_device_sizes["hasS"] = tmp["solar"]
     tf_device_sizes.to_parquet(fname)
 
-def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=1):
+def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, GROWTH, seed=1):
     np.random.seed(seed)
     meterdf = meterdf.copy()
     nmeters = Ldata.shape[1]
@@ -142,7 +142,7 @@ def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, seed=
     return full_tf_load.T, tf_nonzero, meterdf, np.stack([Hsize, Esize, Ssize], axis=1)
 
     
-def generate_failure_curves(nyears=20, year0=2025, seeds=(1,)):
+def generate_failure_curves(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,)):
     timer = Timer(8, mute=False)
     timer.print("Starting")
     weather = weather_data.load_data.generate()
@@ -179,8 +179,9 @@ def generate_failure_curves(nyears=20, year0=2025, seeds=(1,)):
     failure_curves.to_parquet(f"output/alburgh_tf_failure_curves_{GROWTH}_{year0}_{nyears}years.parquet")
     timer.print("data saved")
 
-def _collect_batch(res_to_tfs, failure_curves, tag):
-    agingdf = pd.DataFrame(columns=failure_curves.columns, index=failure_curves.index, data=0.)
+def _collect_batch(res_to_tfs, failure_curves, tag, aging_skip=24):
+    cols = failure_curves.columns[::aging_skip]
+    agingdf = pd.DataFrame(columns=cols, index=failure_curves.index, data=0.)
     for res in concurrent.futures.as_completed(res_to_tfs):
         tfs = res_to_tfs[res]
         pfail, aging = res.result()
@@ -200,34 +201,32 @@ def _submit_batch_failure_curve(tag, tf_inds, weather, T0, executor, nworkers):
         res_to_tfs[res] = tfi#tf_inds[i]
     return res_to_tfs
 
-def _failure_curve_worker(loads, weather, T0):
+def _failure_curve_worker(loads, weather, T0, aging_skip=24):
     #t0 = time.perf_counter()
     hotspot = transformer_aging.temperature_equations(loads, weather, T0=T0)
     aging = transformer_aging.effective_aging(hotspot)
     p_fail = transformer_aging.failure_prob(aging, eta=112, beta=3.5)
     #print("  worker time", round(time.perf_counter() - t0, 2))
-    return p_fail.T, aging.T
+    return p_fail.T, aging[::aging_skip].T
 
-def collect_tf_device_average(nyears=20, year0=2025, seeds=(1,)):
+def collect_tf_device_average(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,)):
     N = len(seeds)
     basename = f"output/alburgh_tf_devices_{GROWTH}_{year0}_{nyears}years"
     df = pd.read_parquet(f"{basename}_{seeds[0]}.parquet")
-    print(df[100:115])
     for seed in seeds[1:]:
         tmp = pd.read_parquet(f"{basename}_{seed}.parquet")
         df += tmp
-        if seed<10:
-            print(tmp[100:115])
-    quit()
     df /= N
     df.to_parquet(f"{basename}_avg.parquet")
     print("device averages collected")
 
 
 if __name__ == "__main__":
-    seeds = (np.arange(5) + 1).astype(int)
+    import workflow
+    seeds = (np.arange(100) + 1).astype(int)
     nyears = 20
     year0 = 2025
-    compute_transformer_loads(nyears=nyears, year0=year0, seeds=seeds)
-    generate_failure_curves(nyears=nyears, year0=year0, seeds=seeds)
-    collect_tf_device_average(nyears=nyears, year0=year0, seeds=seeds)
+    GROWTH = "MED"
+    #workflow.compute_transformer_loads(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds)
+    #generate_failure_curves(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds)
+    collect_tf_device_average(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds)
