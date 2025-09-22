@@ -23,17 +23,18 @@ tf_ratings = read_in_data.read_transformer_ratings("Alburgh")
 
 final_prob = failure_curves.iloc[-1]
 inds = np.argsort(final_prob)
+nmeters = m2t_map.sum(axis=0)[final_prob.index]
+
 select = inds[-25:]
 
 info = failure_curves.iloc[-1, select]
 #print(info)
 tf_devices = tf_devices.loc[info.index]
 tf_devices["p_fail"] = info
-tf_devices["nmeters"] = m2t_map.sum(axis=0)[info.index]
+tf_devices["nmeters"] = nmeters[info.index]
 tf_devices["ratedKVA"] = tf_ratings.loc[info.index, "ratedKVA"]
 tf_devices = tf_devices[["p_fail", "nmeters", "ratedKVA", "H", "E", "S", "hasH", "hasE", "hasS"]]
 print(tf_devices.round(3))
-print(tf_devices*100)
 
 
 for seed in []:#, 5, 6, 7, 8, 9]:
@@ -43,8 +44,9 @@ for seed in []:#, 5, 6, 7, 8, 9]:
 select_curves = failure_curves.values[:, select]
 
 plt.figure(figsize=FIGSIZE)
-plt.plot(final_prob.values[inds])
-plt.axvline(x=len(inds)-15, lw=0.4, c="k")
+plt.plot(final_prob.values[inds], label="p_fail")
+#plt.plot(nmeters.values[inds]/10, label="nmeters/10")
+plt.axvline(x=len(inds)-len(select), lw=0.4, c="k")
 #plt.axhline(y=0.05, lw=0.4, c="k")
 plt.xlabel("transformer index")
 plt.ylabel("final failure probability")
@@ -59,7 +61,7 @@ plt.ylabel("failure probability")
 plt.title("Average of 100 runs")
 plt.savefig(f"figures/alburgh_tf_failure_{GROWTH}_{year0}_{nyears}years.pdf", bbox_inches="tight")
 
-visualize_network(xfmrs=failure_curves.columns[inds[-10:]])
+visualize_network(xfmrs=failure_curves.columns[select])
 
 plt.show()
 
