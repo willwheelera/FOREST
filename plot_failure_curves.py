@@ -5,11 +5,15 @@ from visualize_network import visualize_network
 import pickle
 import loads_to_transformers
 import read_in_data
+import sys
 
-FIGSIZE = (4, 4)
+FIGSIZE = (3, 3)
 year0 = 2025
 nyears = 20
 GROWTH = "HIGH"
+if len(sys.argv) > 1:
+    GROWTH = sys.argv[1]
+    assert GROWTH in ["MED", "HIGH"]
 failure_curves = pd.read_parquet(f"output/alburgh_tf_failure_curves_{GROWTH}_{year0}_{nyears}years.parquet")
 fname = "data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
 mapfile = "data/Alburgh/transformer_map.pkl" # map meters to transformers
@@ -33,7 +37,8 @@ tf_devices = tf_devices.loc[info.index]
 tf_devices["p_fail"] = info
 tf_devices["nmeters"] = nmeters[info.index]
 tf_devices["ratedKVA"] = tf_ratings.loc[info.index, "ratedKVA"]
-tf_devices = tf_devices[["p_fail", "nmeters", "ratedKVA", "H", "E", "S", "hasH", "hasE", "hasS"]]
+tf_devices["id"] = tf_ratings.loc[info.index, "id"]
+tf_devices = tf_devices[["id", "p_fail", "nmeters", "ratedKVA", "H", "E", "S", "hasH", "hasE", "hasS"]]
 print(tf_devices.round(3))
 
 
