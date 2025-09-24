@@ -26,6 +26,11 @@ def read_transformer_ratings(feeder="Alburgh", sub_id=False):
     ratings.loc[bigkeys, "ratedKVA"] = newratings.loc[bigkeys, "gs_rated_kva"]
     ratings.loc["E72805203096474", "ratedKVA"] = 100
 
+
+    newratings = newratings[~newratings.index.duplicated(keep="first")]
+    shared_names = ratings.index.intersection(newratings.index)
+    ratings.loc[shared_names, "id"] = newratings.loc[shared_names, "gs_facility_id"]
+
     if sub_id:
         newratings = newratings[~newratings.index.isna()] # remove nan
         newratings = newratings[~newratings.index.duplicated(keep='first')] # remove duplicate names
@@ -53,9 +58,9 @@ def meter_to_transformer_matrix(meter_map, columns):
         mapdf.loc[m[0], m[1]] = 1.
     return mapdf
 
-def load_meter_data(fname):
+def load_meter_data(fname, year=2024):
     Ldata = pd.read_parquet(fname)
-    meterdf, keys = device_data.get_meter_data("sub28")
+    meterdf, keys = device_data.get_meter_data("sub28", year=year)
     #meterdf = meterdf[meterdf["Substation"] == 28]
     meterdf.set_index("Meter Number", inplace=True)
     Ldata = Ldata[Ldata.columns[Ldata.columns.isin(meterdf.index)]]
@@ -64,4 +69,5 @@ def load_meter_data(fname):
     return Ldata, meterdf
 
 if __name__ == "__main__":
-    read_transformer_ratings()
+    ratings = read_transformer_ratings()
+    print(ratings)
