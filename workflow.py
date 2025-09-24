@@ -16,7 +16,7 @@ import read_in_data
 from timer import Timer
 
 
-def compute_transformer_loads(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,)):
+def compute_transformer_loads(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), label=""):
     """
     Ldata: past (2024) one-year dataframe, (hours, meters)
     meterdf: dataframe with meter numbers and device adoption status
@@ -42,7 +42,7 @@ def compute_transformer_loads(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,)):
     fulltimer.print("Completed loads + failure curves")
 
 
-def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROWTH, seed):
+def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROWTH, seed, label=""):
     timer = Timer(12)
     timer.print(f"seed {seed}", end="    ")#, time.perf_counter() - t0)
     np.random.seed(seed)
@@ -71,7 +71,8 @@ def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROW
         LH = placeholders.generate_heatpump_load_profile(weather)[:, np.newaxis] # just one profile
         LE = ev_charging_model.generate_ev_load_profile(Eparams, len(adoptE))
         LS = sun_model.generate()[:, np.newaxis] # just one profile
-        L0 = placeholders.generate_background_profile(Ldata)
+        # higher base load
+        L0 = 1.5 * placeholders.generate_background_profile(Ldata)
         L = Hsize*LH + LE + Ssize*LS + L0
         pfactor = 1 - 0.1 * (~meterdf["solar"]).astype(float) # assume PF is 1 with inverter
         L = L / pfactor.values # power factor
@@ -84,7 +85,7 @@ def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROW
     timer.print(f"{seed} calculated", end="    ")
 
     df = pd.DataFrame(data=full_tf_load.reshape(-1, ntfs), columns=m2t_map.columns)
-    tag = f"{GROWTH}_{year0}_{nyears}years_{seed}"
+    tag = f"{label}{GROWTH}_{year0}_{nyears}years_{seed}"
     df.to_parquet(f"output/alburgh_tf_load_{tag}.parquet")
 
     Esize = np.zeros(len(Hsize))
