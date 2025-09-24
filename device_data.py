@@ -6,7 +6,7 @@ pd.set_option('future.no_silent_downcasting', True)
 
 
 
-def get_meter_data(prefix="VEC"):
+def get_meter_data(prefix="VEC", year=2025):
     datapath = "data/"
     device_df = pd.read_excel(datapath+"All T3 through 2024.xlsx")
     clean_data(device_df)
@@ -14,7 +14,7 @@ def get_meter_data(prefix="VEC"):
     meter_data = pd.read_parquet(datapath+f"{prefix}_meter_number_data.parquet")
     clean_meter_numbers(meter_data)
     gen_data = pd.read_parquet(datapath+f"{prefix}_gen_meter_number_data.parquet")
-    add_device_data(device_df, meter_data, keys) # meter_data now contains year-added columns for each key
+    add_device_data(device_df, meter_data, keys, year=year) # meter_data now contains year-added columns for each key
     add_solar(meter_data, gen_data)
     return meter_data, keys
 
@@ -48,8 +48,14 @@ def clean_data(df):
         df.loc[select, "Measure"] = v
 
 
-def add_device_data(df, meterdf, keys): # full dataset
+def add_device_data(df, meterdf, keys, year=2025): # full dataset
     df = df[[type(x) == int for x in df["Account"]]].copy()
+    df["Year"] = df["Year"].astype(str)
+    sel = df["Year"].str.contains("COUNT")
+    df.loc[sel, "Year"] = df.loc[sel, "Year"].str[:4]
+    sel = df["Year"].str.contains("Incentive")
+    df = df[~sel]
+    df = df[df["Year"].astype(int) <= year]
     df["Service Number"] = df["Account"].values // 100
 
     measures = df[["Service Number", "Measure"]]
@@ -105,6 +111,6 @@ def save_subset(substation=28):
     df.to_parquet(datapath+f"sub{substation}_gen_meter_number_data.parquet")
 
 if __name__ == "__main__":
-    save_subset()
-    df, keys = get_meter_data("sub28")
-    print(df)
+    #save_subset()
+    df, keys = get_meter_data("sub28", year=2025)
+    print(df[["cchp", "home charger"]].sum(axis=0).T)
