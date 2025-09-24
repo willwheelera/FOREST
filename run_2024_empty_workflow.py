@@ -14,7 +14,7 @@ from timer import Timer
 
 # General outline
 
-def run_2024():
+def run(year=2024):
     """
     Ldata: past (2024) one-year dataframe, (hours, meters)
     meterdf: dataframe with meter numbers and device adoption status
@@ -24,11 +24,13 @@ def run_2024():
     timer = Timer(30)
     timer.print("Starting")
     # Read in load data -- may want to use raw data instead
-    fname = "data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
+    fname = f"data/Alburgh/{year}-01-01_{year}-12-31_South_Alburgh_Load_corrected.parquet"
     #mapfile = "data/Alburgh/transformer_load_map.json" # map meters to transformers
     mapfile = "data/Alburgh/transformer_map.pkl" # map meters to transformers
 
     Ldata, meterdf = read_in_data.load_meter_data(fname)
+    if len(Ldata) == 8737:
+        Ldata = Ldata[:8736]
     m2t_map, TF_RATINGS = read_in_data.load_transformer_data(mapfile, Ldata.columns)
     m2t_frac = (m2t_map / TF_RATINGS)
 
@@ -46,7 +48,8 @@ def run_2024():
     timer.print(f"Reset timer")
 
     weather = weather_data.load_data.generate()
-    pfactor = 1 - 0.1 * (~meterdf["solar"]).astype(float) # assume inverter PF is 1
+    weather = weather[:len(Ldata)]
+    pfactor = 0.9# 1 - 0.1 * (~meterdf["solar"]).astype(float) # assume inverter PF is 1
     L = Ldata / pfactor # power factor
 
     # Transformer loads
@@ -69,17 +72,16 @@ def run_2024():
         
     full_age_curve = np.concatenate(age_curves, axis=0)
     df = pd.DataFrame(data=full_age_curve, columns=m2t_map.columns)
-    df.to_parquet(f"output/alburgh_tf_aging_2024.parquet")
+    df.to_parquet(f"output/alburgh_tf_aging_{year}.parquet")
     full_load_curve = np.concatenate(load_curves, axis=0)
     df = pd.DataFrame(data=full_load_curve, columns=m2t_map.columns)
-    df.to_parquet(f"output/alburgh_tf_load_2024.parquet")
-    # TODO save to hdf instead of multiple parquet files
+    df.to_parquet(f"output/alburgh_tf_load_{year}.parquet")
 
     sizes = meterdf[["cchp", "home charger", "solar"]]
     tf_device_sizes = m2t_map.T @ sizes
     tf_device_sizes["age"] = df.iloc[-1]
-    tf_device_sizes.to_parquet(f"output/alburgh_tf_devices_2024.parquet")
+    tf_device_sizes.to_parquet(f"output/alburgh_tf_devices_{year}.parquet")
     
 if __name__ == "__main__":
     
-    run_2024()
+    run(2024)
