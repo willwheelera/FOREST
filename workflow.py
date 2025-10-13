@@ -16,7 +16,8 @@ import read_in_data
 from timer import Timer
 
 
-def compute_transformer_loads(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), label=""):
+
+def compute_transformer_loads(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), label="", LOADSCALING=1.0):
     """
     Ldata: past (2024) one-year dataframe, (hours, meters)
     meterdf: dataframe with meter numbers and device adoption status
@@ -37,12 +38,12 @@ def compute_transformer_loads(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), 
     fulltimer.print("data loaded")
 
     for seed in seeds:
-        _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROWTH, seed)
+        _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROWTH, seed, label, LOADSCALING)
 
     fulltimer.print("Completed loads + failure curves")
 
 
-def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROWTH, seed, label=""):
+def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROWTH, seed, label="", LOADSCALING=1.):
     timer = Timer(12)
     timer.print(f"seed {seed}", end="    ")#, time.perf_counter() - t0)
     np.random.seed(seed)
@@ -72,7 +73,7 @@ def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROW
         LE = ev_charging_model.generate_ev_load_profile(Eparams, len(adoptE))
         LS = sun_model.generate()[:, np.newaxis] # just one profile
         # higher base load
-        L0 = 1.5 * placeholders.generate_background_profile(Ldata)
+        L0 = LOADSCALING * placeholders.generate_background_profile(Ldata)
         L = Hsize*LH + LE + Ssize*LS + L0
         pfactor = 1 - 0.1 * (~meterdf["solar"]).astype(float) # assume PF is 1 with inverter
         L = L / pfactor.values # power factor
@@ -126,5 +127,5 @@ if __name__ == "__main__":
     seeds = (np.arange(100) + 1).astype(int)
     nyears = 20
     year0 = 2025
-    GROWTH = "MED"
+    GROWTH = "MH"
     compute_transformer_loads(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds)
