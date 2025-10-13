@@ -10,10 +10,10 @@ import sys
 FIGSIZE = (3, 3)
 year0 = 2025
 nyears = 20
-GROWTH = "HIGH"
+GROWTH = "MH"
 if len(sys.argv) > 1:
     GROWTH = sys.argv[1]
-    assert GROWTH in ["MED", "HIGH"]
+    assert GROWTH in ["MED", "MH", "HIGH", "base150MED", "base150MH", "base150HIGH", "tran150MED", "tran150MH", "tran150HIGH"]
 failure_curves = pd.read_parquet(f"output/alburgh_tf_failure_curves_{GROWTH}_{year0}_{nyears}years.parquet")
 fname = "data/Alburgh/2024-01-01_2024-12-31_South_Alburgh_Load_corrected.parquet"
 mapfile = "data/Alburgh/transformer_map.pkl" # map meters to transformers
@@ -33,9 +33,19 @@ select = inds[-25:]
 
 info = failure_curves.iloc[-1, select]
 #print(info)
+isort = tf_devices.index.sort_values()[-10:]
+#print(tf_devices.loc["tran_87721"])
+#print(tf_ratings.loc[isort])
+tf_devices["nmeters"] = nmeters#[info.index]
+print(m2t_map.shape)
+not_tran = ~tf_devices.index.str.startswith("tran_")
+tmp = tf_devices[not_tran]
+print("adoption level")
+#print(tmp[["nmeters", "hasH", "hasE", "hasS"]].sum(axis=0))
+print(tmp[["nmeters", "hasH", "hasE", "hasS"]].sum(axis=0) / m2t_map.shape[0])
+
 tf_devices = tf_devices.loc[info.index]
 tf_devices["p_fail"] = info
-tf_devices["nmeters"] = nmeters[info.index]
 tf_devices["ratedKVA"] = tf_ratings.loc[info.index, "ratedKVA"]
 tf_devices["id"] = tf_ratings.loc[info.index, "id"]
 tf_devices = tf_devices[["id", "p_fail", "nmeters", "ratedKVA", "H", "E", "S", "hasH", "hasE", "hasS"]]
