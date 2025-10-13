@@ -16,13 +16,13 @@ def estimate_logistic_rate(year, f_now, y50, ynow=2024):
 def growth_rate_heatpumps(year, GROWTH):
     # Alburgh
     f_now = 0.11 # estimated penetration from current data
-    y50 = dict(LOW=2060, MED=2050, HIGH=2035) # estimate year of 50% hp penetration
+    y50 = dict(LOW=2060, MED=2050, MH=2040, HIGH=2035) # estimate year of 50% hp penetration
     return estimate_logistic_rate(year, f_now, y50[GROWTH])
 
 def growth_rate_evs(year, GROWTH):
     # Alburgh
     f_now = 0.005 # estimated penetration from current data
-    y50 = dict(LOW=2070, MED=2060, HIGH=2035) # estimate year of 50% ev penetration
+    y50 = dict(LOW=2070, MED=2060, MH=2045, HIGH=2035) # estimate year of 50% ev penetration
     return estimate_logistic_rate(year, f_now, y50[GROWTH])
 
 def growth_rate_solar(year, GROWTH):
