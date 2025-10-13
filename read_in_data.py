@@ -8,6 +8,38 @@ import device_data
 import os
 import time
 
+
+BIGKEYS = [
+    'E72805100040038', 
+    'E72805103079841', # 10kVA problem 2024: 39 years
+    'E72805103080326',
+    'E72805103080328', # 15kVA problem 2024: 55 years 
+    'E72805103097973', 
+    'E72805203078657',
+    'E72805203078706', 
+    'E72805203078859', 
+    'E72805203078866',
+    'E72805203079531', 
+    'E72805203079711', # problem 2017 (7.4e5 years) 2019 (1.1e5 years)
+    'E72805203080317',
+    "E101A 48 V1"    ,
+    "E72805203080314",
+    "E72805203095833",
+    "E72805100060921",
+    "E72805100060415",
+    "E72804503093020", # of new ones, only this one updates
+    "E72805203078626",
+    "E72805103080185",
+    "E72805203079378",
+    "E72805203080291",
+    "E72805003081159",
+    "E72805203079649",
+    "E72805103080035",
+    "E72805203078960",
+    "E72805103080330",
+    "E72805203078752", 
+]
+
 def read_transformer_ratings(feeder="Alburgh", sub_id=False):
     path = f"data/{feeder}/"
     tf_fname = "normalized_transformer_loading.parquet"
@@ -18,13 +50,14 @@ def read_transformer_ratings(feeder="Alburgh", sub_id=False):
     ratings = ratings.set_index("tf_name")
     newratings = newratings.set_index("gs_equipment_location")
 
-    # Try to fix incorrect values
-    bigkeys = ['E72805100040038', 'E72805103079841', 'E72805103080326',
-   'E72805103080328', 'E72805103097973', 'E72805203078657',
-   'E72805203078706', 'E72805203078859', 'E72805203078866',
-   'E72805203079531', 'E72805203079711', 'E72805203080317']
-    ratings.loc[bigkeys, "ratedKVA"] = newratings.loc[bigkeys, "gs_rated_kva"]
-    ratings.loc["E72805203096474", "ratedKVA"] = 100
+    # Try to fix incorrect values - some have problems post-fix
+    #tmp = pd.DataFrame({"og": ratings.loc[BIGKEYS, "ratedKVA"].values, "new2025": newratings.loc[BIGKEYS, "gs_rated_kva"].values}, index=BIGKEYS)
+    #print(tmp); quit()
+    for bk in BIGKEYS:
+        if ratings.loc[bk, "ratedKVA"] < newratings.loc[bk, "gs_rated_kva"]:
+            ratings.loc[bk, "ratedKVA"] = newratings.loc[bk, "gs_rated_kva"]
+
+    ratings.loc["E72805203096474", "ratedKVA"] = 100 # even with the 100 rating, this has problems with 2017 and 2019 data: 3.4, 2.6 years aging
 
 
     newratings = newratings[~newratings.index.duplicated(keep="first")]
