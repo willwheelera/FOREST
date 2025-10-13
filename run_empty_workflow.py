@@ -11,7 +11,6 @@ import transformer_aging
 import read_in_data
 from timer import Timer
 
-
 # General outline
 
 def run(year=2024):
@@ -60,6 +59,10 @@ def run(year=2024):
     load_curves.append(L_tr)
     timer.print(f"transformer loads calculated")#, time.perf_counter() - t0)
 
+    if year == 2017:
+        select_bad = L_tr[2920:2928].mean(axis=0) > 2.
+        L_tr[2920:2928, select_bad] = 0.
+
     # Transformer aging
     hotspot = transformer_aging.temperature_equations(L_tr, weather, T0=T0)
     T0 = hotspot[-1] # for iterating multiple years if desired
@@ -83,5 +86,7 @@ def run(year=2024):
     tf_device_sizes.to_parquet(f"output/alburgh_tf_devices_{year}.parquet")
     
 if __name__ == "__main__":
-    
-    run(2024)
+    import sys
+    for year in sys.argv[1:]:
+        year = int(year)
+        run(year)
