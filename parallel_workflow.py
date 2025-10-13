@@ -142,7 +142,7 @@ def _calculate_meter_loads_subset(Ldata, meterdf, m2t_frac, nyears, year0, GROWT
     return full_tf_load.T, tf_nonzero, meterdf, np.stack([Hsize, Esize, Ssize], axis=1)
 
     
-def generate_failure_curves(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), label=""):
+def generate_failure_curves(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), label="", transcale=1.):
     timer = Timer(8, mute=False)
     timer.print("Starting")
     weather = weather_data.load_data.generate()
@@ -153,11 +153,12 @@ def generate_failure_curves(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), la
     failure_curves = pd.DataFrame(columns=np.arange(8760*nyears), index=tf_device_sizes.index, data=0.)
     #failure_curves = pd.DataFrame(index=np.arange(8760*nyears), columns=tf_device_sizes.index, data=0.)
     timer.print("data loaded")
+    ttag = "" if transcale == 1. else "tran"+str(int(transcale*100))
     
     nworkers = 10#os.cpu_count() - 1
     tf_inds = np.array_split(np.arange(len(tf_device_sizes)).astype(int), nworkers)
     with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
-        args = (tf_inds, weather, T0, executor, nworkers)
+        args = (tf_inds, weather, T0, executor, nworkers, transcale)
         tag0 = f"{label}{GROWTH}_{year0}_{nyears}years_{seeds[0]}"
         res_to_tfs = _submit_batch_failure_curve(tag0, *args)
         timer.print(f"seed {seeds[0]} submitted")
@@ -166,17 +167,17 @@ def generate_failure_curves(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), la
             res_to_tfs_new = _submit_batch_failure_curve(tag1, *args)
             timer.print(f"seed {seed} submitted")
 
-            _collect_batch(res_to_tfs, failure_curves, tag0)
+            _collect_batch(res_to_tfs, failure_curves, ttag+tag0)
             tag0 = tag1
             res_to_tfs = res_to_tfs_new
             timer.print(f"seed {seed-1} failure curve")
-        _collect_batch(res_to_tfs, failure_curves, tag0)
+        _collect_batch(res_to_tfs, failure_curves, ttag+tag0)
         timer.print(f"seed {seeds[-1]} failure curve")
         failure_curves = failure_curves.T
         failure_curves /= N
         timer.print(f"failure curves collected")
 
-    failure_curves.to_parquet(f"output/alburgh_tf_failure_curves_{label}{GROWTH}_{year0}_{nyears}years.parquet")
+    failure_curves.to_parquet(f"output/alburgh_tf_failure_curves_{ttag}{label}{GROWTH}_{year0}_{nyears}years.parquet")
     timer.print("data saved")
 
 def _collect_batch(res_to_tfs, failure_curves, tag, aging_skip=24):
@@ -190,9 +191,9 @@ def _collect_batch(res_to_tfs, failure_curves, tag, aging_skip=24):
     outname = f"output/alburgh_tf_aging_{tag}.parquet"
     agingdf.T.to_parquet(outname)
 
-def _submit_batch_failure_curve(tag, tf_inds, weather, T0, executor, nworkers):
+def _submit_batch_failure_curve(tag, tf_inds, weather, T0, executor, nworkers, tscale):
     res_to_tfs = {}
-    df = pd.read_parquet(f"output/alburgh_tf_load_{tag}.parquet")
+    df = pd.read_parquet(f"output/alburgh_tf_load_{tag}.parquet") / tscale
     for i, tfi in enumerate(tf_inds):
         tfs = df.columns[tfi]
         res = executor.submit(
@@ -226,8 +227,8 @@ if __name__ == "__main__":
     seeds = (np.arange(100) + 1).astype(int)
     nyears = 20
     year0 = 2025
-    label = "base150"
-    for GROWTH in ["MED", "HIGH"]:
-        workflow.compute_transformer_loads(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label)
-        generate_failure_curves(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label)
-    #collect_tf_device_average(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds)
+    label = ""
+    for GROWTH in ["MED", "MH", "HIGH"]:
+        #workflow.compute_transformer_loads(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label, LOADSCALING=1.5)
+        generate_failure_curves(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label, transcale=1.5)
+        #collect_tf_device_average(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label)
