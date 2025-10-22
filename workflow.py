@@ -73,8 +73,8 @@ def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROW
         LE = ev_charging_model.generate_ev_load_profile(Eparams, len(adoptE))
         LS = sun_model.generate()[:, np.newaxis] # just one profile
         # higher base load
-        L0 = LOADSCALING * placeholders.generate_background_profile(Ldata)
-        L = Hsize*LH + LE + Ssize*LS + L0
+        #L0 = LOADSCALING * placeholders.generate_background_profile(Ldata)
+        L = Hsize*LH + LE + Ssize*LS + LOADSCALING*Ldata
         pfactor = 1 - 0.1 * (~meterdf["solar"]).astype(float) # assume PF is 1 with inverter
         L = L / pfactor.values # power factor
 
@@ -87,7 +87,7 @@ def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROW
 
     df = pd.DataFrame(data=full_tf_load.reshape(-1, ntfs), columns=m2t_map.columns)
     tag = f"{label}{GROWTH}_{year0}_{nyears}years_{seed}"
-    df.to_parquet(f"output/alburgh_tf_load_{tag}.parquet")
+    #df.to_parquet(f"output/alburgh_tf_load_{tag}.parquet")
 
     Esize = np.zeros(len(Hsize))
     Esize[Eparams[0].astype(int)] = Eparams[1]
@@ -98,9 +98,11 @@ def _calculate_loads_seed(Ldata, meterdf, m2t_frac, m2t_map, nyears, year0, GROW
     tf_device_sizes["hasE"] = tmp["home charger"]
     tf_device_sizes["hasS"] = tmp["solar"]
     tf_device_sizes["age"] = df.iloc[-1]
-    tf_device_sizes.to_parquet(f"output/alburgh_tf_devices_{tag}.parquet")
+    #tf_device_sizes.to_parquet(f"output/alburgh_tf_devices_{tag}.parquet")
     
     timer.print(f"saved")
+
+    return df, tf_device_sizes
 
 def generate_failure_curves(nyears=20, year0=2025, seeds=(1,)):
     # TODO not implemented yet
