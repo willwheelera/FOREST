@@ -177,7 +177,7 @@ def generate_failure_curves(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), la
         failure_curves /= N
         timer.print(f"failure curves collected")
 
-    failure_curves.to_parquet(f"output/alburgh_tf_failure_curves_{ttag}{label}{GROWTH}_{year0}_{nyears}years.parquet")
+    failure_curves.to_parquet(f"output/alburgh_tf_failure_curves_{ttag}{label}{GROWTH}_{year0}_{nyears}years_{seeds[0]}-{seeds[-1]}.parquet")
     timer.print("data saved")
 
 def _collect_batch(res_to_tfs, failure_curves, tag, aging_skip=24):
@@ -224,11 +224,12 @@ def collect_tf_device_average(nyears=20, year0=2025, GROWTH="HIGH", seeds=(1,), 
 
 if __name__ == "__main__":
     import workflow
-    seeds = (np.arange(100) + 1).astype(int)
+    seeds = (np.arange(100) + 101).astype(int)
     nyears = 20
     year0 = 2025
     label = ""
-    for GROWTH in ["MED", "MH", "HIGH"]:
-        #workflow.compute_transformer_loads(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label, LOADSCALING=1.5)
-        generate_failure_curves(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label, transcale=1.5)
-        #collect_tf_device_average(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label)
+    for GROWTH in ["MH"]:#["MED", "MH", "HIGH"]:
+        #workflow.compute_transformer_loads(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label, LOADSCALING=1.)
+        #seeds = (np.arange(1000) + 1).astype(int)
+        #generate_failure_curves(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label, transcale=1.)
+        collect_tf_device_average(nyears=nyears, year0=year0, GROWTH=GROWTH, seeds=seeds, label=label)
