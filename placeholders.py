@@ -74,7 +74,7 @@ def size_solar(Ldata, adopt):
     return new_size
 
 def generate_background_profile(Ldata):
-    return Ldata.copy()
+    return Ldata#.copy()
 
 #@njit
 def generate_heatpump_load_profile(temp):
